@@ -4,6 +4,20 @@ Experimental, **max-performance** Fabric **server** engine for **Minecraft 26.1.
 A playground build that fuses ideas from many optimization mods into one and pushes JDK 25–only
 techniques. **Not for production worlds** — expect instability and mod incompatibility.
 
+> ### Branch `fabric-26.1` — real mod, deobfuscated MC
+> MC 26.1 ships **unobfuscated** (native Mojang names; no Yarn, no mappings download). This branch
+> builds the actual Fabric server mod against it; the standalone engine core lives on `main`.
+>
+> **Milestone 1 ✅ — the mod compiles AND loads on a Fabric 26.1.2 server.** The dev server boots
+> with the mod and the startup self-test passes *live*: parallel region scheduler, FFM off-heap,
+> AVX-512 SIMD, and Compact Object Headers all active in-server (`Mappings not present!` confirms the
+> deobfuscated path); clean startup + shutdown, no errors.
+>
+> Build here: `./gradlew build` → `build/libs/tachyon-*.jar`; `./gradlew runServer` boots a dev
+> server with the mod. Uses `net.fabricmc.fabric-loom` (non-remapping), **no `mappings` line**,
+> `implementation`/`jar`, access-widener `official` namespace. Gradle daemon must run on JDK 25.
+> Milestone 2 (next): `ServerLevelAdapter` + route entity ticking through `MosaicTicker`.
+
 ## What's here (v0.1.0-experimental)
 
 | Subsystem | Package | Status |
