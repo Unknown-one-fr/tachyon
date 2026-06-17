@@ -16,8 +16,10 @@ public final class TachyonCommand {
     private TachyonCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        // TODO(26.1): re-gate to operators via the new PermissionSet API
+        // (CommandSourceStack.permissions().hasPermission(<Permission>)). Open on the
+        // private test instance for now — milestone 1 is compile + load.
         dispatcher.register(Commands.literal("tachyon")
-                .requires(src -> src.hasPermission(2))
                 .then(Commands.literal("perf").executes(ctx -> {
                     ctx.getSource().sendSuccess(
                             () -> Component.literal(TachyonMod.engine.metrics.summary()), false);

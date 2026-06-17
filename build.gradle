@@ -1,23 +1,44 @@
-// Active build: the Minecraft-independent Tachyon engine core (library + self-test
-// runner), validated on JDK 25. The Fabric/Loom build that wraps this into a server
-// mod is staged in build.fabric.gradle.txt — swap it in once MC 26.1.2 dev mappings
-// are published (see README).
+// Fabric/MC 26.1 build (branch fabric-26.1). MC 26.1 ships UNOBFUSCATED, so we use the
+// non-remapping net.fabricmc.fabric-loom plugin, declare NO mappings (names are native
+// Mojang), and use implementation/jar (not modImplementation/remapJar). See plan Phase 2.
 plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.11'
     id 'java'
-    id 'application'
 }
 
-group = project.maven_group
 version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
 
 repositories {
+    maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
     mavenCentral()
 }
 
 dependencies {
+    // No `mappings` line: 26.1 is unobfuscated and Loom does not remap it.
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+loom {
+    accessWidenerPath = file("src/main/resources/tachyon.accesswidener")
+    runConfigs.configureEach {
+        vmArgs(
+            '--add-modules=jdk.incubator.vector',
+            '--enable-native-access=ALL-UNNAMED',
+            '-Dtachyon.dev=true',
+            '-XX:+UseCompactObjectHeaders'
+        )
+    }
 }
 
 java {
@@ -27,32 +48,9 @@ java {
     withSourcesJar()
 }
 
-sourceSets {
-    main {
-        java {
-            // Exclude the MC/Fabric integration layer from the core build (needs Loom).
-            exclude 'dev/tachyon/TachyonMod.java'
-            exclude 'dev/tachyon/ServerActuators.java'
-            exclude 'dev/tachyon/command/**'
-        }
-        // fabric.mod.json / mixins / accesswidener are for the Fabric build only.
-        resources {
-            srcDirs = []
-        }
-    }
-}
-
-application {
-    mainClass = 'dev.tachyon.SelfTestRunner'
-    applicationDefaultJvmArgs = [
-        '--add-modules=jdk.incubator.vector',
-        '--enable-native-access=ALL-UNNAMED',
-        '-XX:+UseCompactObjectHeaders'
-    ]
-}
-
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.release = 25
     options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
 }
 
@@ -61,8 +59,9 @@ test {
     jvmArgs '--add-modules=jdk.incubator.vector', '--enable-native-access=ALL-UNNAMED'
 }
 
-jar {
-    manifest {
-        attributes('Main-Class': 'dev.tachyon.SelfTestRunner')
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
     }
 }

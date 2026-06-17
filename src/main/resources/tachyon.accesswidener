@@ -1,7 +1,6 @@
-accessWidener	v2	named
+accessWidener	v2	official
 
-# Access wideners are added here as the mixin layer needs to reach private MC
-# internals (entity lists, chunk maps, light engine). Entries reference exact
-# Mojmap names and are filled in during the integration pass against genSources,
-# e.g.:
-#   accessible  field  net/minecraft/server/level/ServerLevel  entityManager  Lnet/minecraft/world/level/entity/PersistentEntitySectionManager;
+# MC 26.1 is unobfuscated, so access-widener entries use the `official` (native Mojang)
+# namespace. Entries are added as the mixin layer needs to reach private MC internals
+# (entity lists, chunk maps, light engine), e.g.:
+#   accessible  field  net/minecraft/server/level/ServerLevel  entityManager  L...;
