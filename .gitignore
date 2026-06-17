@@ -1,0 +1,30 @@
+# Gradle / build output
+build/
+.gradle/
+run/
+
+# Loom / decompiled sources cache
+.fabric/
+*.hprof
+
+# Environment-specific (large, not source) — staged JDK + standalone Gradle dist
+.jdk25/
+gradle-9.5.1/
+gradle-*-bin.zip
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+bin/
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep the Gradle wrapper committed (do NOT ignore gradle/wrapper/*)

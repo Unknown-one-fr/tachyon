@@ -1,0 +1,41 @@
+// ============================================================================
+// STAGED TEMPLATE — not compiled. Move into src/main/java/dev/tachyon/mixin/
+// and register in tachyon.mixins.json after validating against genSources.
+//
+// Purpose: replace the serial "for each level: level.tick()" iteration with a
+// parallel pass that partitions loaded chunks into regions and ticks them on the
+// RegionScheduler, then runs the barrier. Start by parallelizing across LEVELS
+// (dimensions) — trivially independent — before regionizing within a level.
+// ============================================================================
+package dev.tachyon.mixin;
+
+import dev.tachyon.TachyonMod;
+import net.minecraft.server.MinecraftServer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.function.BooleanSupplier;
+
+@Mixin(MinecraftServer.class)
+public abstract class MinecraftServerMixin {
+
+    // TODO(genSources): confirm name/descriptor of the per-tick world loop
+    // (historically tickChildren(BooleanSupplier)). Redirect the level iteration
+    // to dev.tachyon.engine.MosaicTicker which:
+    //   1. asks each ServerLevel for its loaded chunk set,
+    //   2. RegionGraph.partition(...) -> regions,
+    //   3. RegionScheduler.tick(regions, region -> tickRegion(level, region)),
+    //   4. records phase timings into TachyonMod.engine.metrics.
+    @Inject(method = "tickChildren", at = @At("HEAD"), cancellable = true)
+    private void tachyon$parallelWorldTick(BooleanSupplier keepRunning, CallbackInfo ci) {
+        if (!TachyonMod.config.mosaicEnabled) {
+            return; // vanilla serial path
+        }
+        // long t0 = System.nanoTime();
+        // dev.tachyon.engine.MosaicTicker.tickAllLevels((MinecraftServer)(Object)this, keepRunning);
+        // TachyonMod.engine.metrics.recordPhases(...);
+        // ci.cancel();
+    }
+}

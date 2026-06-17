@@ -1,0 +1,99 @@
+package dev.tachyon.config;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
+
+/**
+ * Plain {@code .properties}-backed feature flags. Every subsystem is individually
+ * toggleable so a regression or incompatibility can be bisected without recompiling.
+ * The riskiest subsystem (the Mosaic parallel engine) defaults OFF even in this
+ * playground build — you opt in explicitly.
+ */
+public final class TachyonConfig {
+    // subsystems
+    public boolean mosaicEnabled = false;   // parallel region tick engine (experimental)
+    public boolean soaEnabled = true;       // struct-of-arrays entity hot store
+    public boolean ffmScratch = true;       // off-heap FFM scratch arenas
+    public boolean simdNoise = true;        // SIMD worldgen kernels
+    public boolean governorEnabled = true;  // self-tuning MSPT governor
+
+    // tunables
+    public int targetMspt = 35;
+    public int interactionRadiusChunks = 2;
+    public int parallelism = Math.max(2, Runtime.getRuntime().availableProcessors() - 2);
+    public int metricsWindow = 200;
+    public long scratchBytesPerThread = 8L * 1024 * 1024;
+
+    public static TachyonConfig load(Path file) {
+        TachyonConfig c = new TachyonConfig();
+        if (Files.exists(file)) {
+            Properties p = new Properties();
+            try (InputStream in = Files.newInputStream(file)) {
+                p.load(in);
+            } catch (IOException e) {
+                return c;
+            }
+            c.mosaicEnabled = bool(p, "mosaic.enabled", c.mosaicEnabled);
+            c.soaEnabled = bool(p, "soa.enabled", c.soaEnabled);
+            c.ffmScratch = bool(p, "ffm.scratch", c.ffmScratch);
+            c.simdNoise = bool(p, "simd.noise", c.simdNoise);
+            c.governorEnabled = bool(p, "governor.enabled", c.governorEnabled);
+            c.targetMspt = integer(p, "governor.targetMspt", c.targetMspt);
+            c.interactionRadiusChunks = integer(p, "mosaic.interactionRadiusChunks", c.interactionRadiusChunks);
+            c.parallelism = integer(p, "mosaic.parallelism", c.parallelism);
+            c.metricsWindow = integer(p, "metrics.window", c.metricsWindow);
+            c.scratchBytesPerThread = longer(p, "ffm.bytesPerThread", c.scratchBytesPerThread);
+        } else {
+            c.save(file);
+        }
+        return c;
+    }
+
+    public void save(Path file) {
+        Properties p = new Properties();
+        p.setProperty("mosaic.enabled", Boolean.toString(mosaicEnabled));
+        p.setProperty("mosaic.interactionRadiusChunks", Integer.toString(interactionRadiusChunks));
+        p.setProperty("mosaic.parallelism", Integer.toString(parallelism));
+        p.setProperty("soa.enabled", Boolean.toString(soaEnabled));
+        p.setProperty("ffm.scratch", Boolean.toString(ffmScratch));
+        p.setProperty("ffm.bytesPerThread", Long.toString(scratchBytesPerThread));
+        p.setProperty("simd.noise", Boolean.toString(simdNoise));
+        p.setProperty("governor.enabled", Boolean.toString(governorEnabled));
+        p.setProperty("governor.targetMspt", Integer.toString(targetMspt));
+        p.setProperty("metrics.window", Integer.toString(metricsWindow));
+        try {
+            Files.createDirectories(file.getParent());
+            try (OutputStream out = Files.newOutputStream(file)) {
+                p.store(out, "Tachyon experimental performance engine — playground build");
+            }
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static boolean bool(Properties p, String k, boolean def) {
+        String v = p.getProperty(k);
+        return v == null ? def : Boolean.parseBoolean(v.trim());
+    }
+
+    private static int integer(Properties p, String k, int def) {
+        try {
+            String v = p.getProperty(k);
+            return v == null ? def : Integer.parseInt(v.trim());
+        } catch (NumberFormatException e) {
+            return def;
+        }
+    }
+
+    private static long longer(Properties p, String k, long def) {
+        try {
+            String v = p.getProperty(k);
+            return v == null ? def : Long.parseLong(v.trim());
+        } catch (NumberFormatException e) {
+            return def;
+        }
+    }
+}
