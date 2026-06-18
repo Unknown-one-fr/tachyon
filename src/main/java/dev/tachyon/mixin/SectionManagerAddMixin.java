@@ -20,11 +20,11 @@ public class SectionManagerAddMixin {
         if (!EntityLifecycleLock.engaged()) {
             return original.call(entity, loaded);
         }
-        EntityLifecycleLock.lock();
+        EntityLifecycleLock.lockWrite();
         try {
             return original.call(entity, loaded);
         } finally {
-            EntityLifecycleLock.unlock();
+            EntityLifecycleLock.unlockWrite();
         }
     }
 }

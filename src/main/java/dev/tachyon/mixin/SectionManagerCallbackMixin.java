@@ -21,11 +21,11 @@ public class SectionManagerCallbackMixin {
             original.call();
             return;
         }
-        EntityLifecycleLock.lock();
+        EntityLifecycleLock.lockWrite();
         try {
             original.call();
         } finally {
-            EntityLifecycleLock.unlock();
+            EntityLifecycleLock.unlockWrite();
         }
     }
 
@@ -35,11 +35,11 @@ public class SectionManagerCallbackMixin {
             original.call(reason);
             return;
         }
-        EntityLifecycleLock.lock();
+        EntityLifecycleLock.lockWrite();
         try {
             original.call(reason);
         } finally {
-            EntityLifecycleLock.unlock();
+            EntityLifecycleLock.unlockWrite();
         }
     }
 }

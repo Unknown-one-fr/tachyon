@@ -21,11 +21,11 @@ public class EntityTickListMixin {
             original.call(entity);
             return;
         }
-        EntityLifecycleLock.lock();
+        EntityLifecycleLock.lockWrite();
         try {
             original.call(entity);
         } finally {
-            EntityLifecycleLock.unlock();
+            EntityLifecycleLock.unlockWrite();
         }
     }
 
@@ -35,11 +35,11 @@ public class EntityTickListMixin {
             original.call(entity);
             return;
         }
-        EntityLifecycleLock.lock();
+        EntityLifecycleLock.lockWrite();
         try {
             original.call(entity);
         } finally {
-            EntityLifecycleLock.unlock();
+            EntityLifecycleLock.unlockWrite();
         }
     }
 }
