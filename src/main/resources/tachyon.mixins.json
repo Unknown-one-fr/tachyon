@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "dev.tachyon.mixin",
   "compatibilityLevel": "JAVA_21",
+  "plugin": "dev.tachyon.mixin.TachyonMixinPlugin",
   "mixins": [],
   "server": [
     "ServerLevelTickMixin",
@@ -13,6 +14,7 @@
     "SectionManagerCallbackMixin",
     "LevelEntityGetterMixin",
     "ScoreboardMixin",
+    "IntraLevelEntityLoopMixin",
     "EntityTeleportMixin",
     "ServerPlayerTeleportMixin"
   ],

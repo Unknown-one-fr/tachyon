@@ -50,6 +50,12 @@ public final class TachyonMod implements ModInitializer {
         LOG.info("  jdk25: VectorAPI={} CompactObjectHeaders={} parallelism={}",
                 NoiseKernel.simdAvailable(), readVmFlag("UseCompactObjectHeaders"), config.parallelism);
 
+        if (dev.tachyon.mixin.TachyonMixinPlugin.isMeasureOnly()) {
+            LOG.warn("  MEASURE-ONLY MODE: a conflicting deep tick/chunk mod (e.g. Lithium/C2ME) is "
+                    + "present, so the parallel takeover is disabled. /tachyon regions still works. "
+                    + "Run on a server without that perf stack to enable the takeover.");
+        }
+
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             if (config.governorEnabled) {
                 governor = new MsptGovernor(config.targetMspt, new ServerActuators(server, 10));

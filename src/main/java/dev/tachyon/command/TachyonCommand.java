@@ -8,16 +8,19 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 
 /**
- * {@code /tachyon perf | selftest | status} — operator-only diagnostics.
- * The other MC-touching class besides {@link dev.tachyon.ServerActuators}; uses only
- * long-stable Brigadier + command-source APIs.
+ * {@code /tachyon regions | perf | selftest | status | mosaic on|off} — operator-only.
+ *
+ * <p><b>All subcommands are gated to operator level</b> by the single {@code requires} on the root
+ * literal (Brigadier propagates it to every child), so both the read-only diagnostics and the
+ * powerful {@code mosaic} runtime toggle require op. Uses only long-stable Brigadier + command-source
+ * APIs ({@code Commands.hasPermission} with the 26.1 PermissionCheck).
  */
 public final class TachyonCommand {
     private TachyonCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("tachyon")
-                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))   // op level 2 (26.1 PermissionCheck)
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))   // op level (gates ALL subcommands)
                 .then(Commands.literal("regions").executes(ctx -> {
                     ctx.getSource().sendSuccess(
                             () -> Component.literal(dev.tachyon.mc.RegionStats.summary()), false);
@@ -38,9 +41,11 @@ public final class TachyonCommand {
                         .then(Commands.literal("off").executes(ctx -> setMosaic(ctx, false))))
                 .then(Commands.literal("status").executes(ctx -> {
                     TachyonConfig c = TachyonMod.config;
+                    boolean measureOnly = dev.tachyon.mixin.TachyonMixinPlugin.isMeasureOnly();
                     String s = "Tachyon " + TachyonMod.VERSION
-                            + " | mosaic=" + c.mosaicEnabled + " soa=" + c.soaEnabled
-                            + " ffm=" + c.ffmScratch + " simd=" + c.simdNoise
+                            + (measureOnly ? " | MEASURE-ONLY (conflicting mod present; takeover disabled)" : "")
+                            + " | mosaic=" + c.mosaicEnabled + " intraLevel=" + c.intraLevel
+                            + " soa=" + c.soaEnabled + " ffm=" + c.ffmScratch + " simd=" + c.simdNoise
                             + " governor=" + c.governorEnabled
                             + " | parallelism=" + c.parallelism + " targetMSPT=" + c.targetMspt;
                     ctx.getSource().sendSuccess(() -> Component.literal(s), false);

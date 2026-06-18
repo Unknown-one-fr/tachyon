@@ -34,3 +34,6 @@ Thumbs.db
 
 # Extracted decompiled MC sources (genSources output, large, not source)
 .mcsrc/
+
+# Delivery jar (build artifact)
+/tachyon-*.jar
