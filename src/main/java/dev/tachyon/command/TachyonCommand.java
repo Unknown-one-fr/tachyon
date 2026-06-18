@@ -33,6 +33,9 @@ public final class TachyonCommand {
                             () -> Component.literal(TachyonMod.engine.selfTest()), false);
                     return 1;
                 }))
+                .then(Commands.literal("mosaic")
+                        .then(Commands.literal("on").executes(ctx -> setMosaic(ctx, true)))
+                        .then(Commands.literal("off").executes(ctx -> setMosaic(ctx, false))))
                 .then(Commands.literal("status").executes(ctx -> {
                     TachyonConfig c = TachyonMod.config;
                     String s = "Tachyon " + TachyonMod.VERSION
@@ -43,5 +46,17 @@ public final class TachyonCommand {
                     ctx.getSource().sendSuccess(() -> Component.literal(s), false);
                     return 1;
                 })));
+    }
+
+    /** Toggle the parallel takeover at runtime and clear the metrics window for a clean A/B read. */
+    private static int setMosaic(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx, boolean on) {
+        TachyonMod.config.mosaicEnabled = on;
+        if (TachyonMod.engine != null) {
+            TachyonMod.engine.metrics.reset();
+        }
+        ctx.getSource().sendSuccess(
+                () -> Component.literal("Tachyon mosaic " + (on ? "ENABLED" : "disabled")
+                        + " (metrics window cleared)"), false);
+        return 1;
     }
 }

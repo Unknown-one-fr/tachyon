@@ -56,6 +56,13 @@ public final class TickMetrics {
         return count;
     }
 
+    /** Clear the rolling window (e.g. after toggling a subsystem, for a clean measurement). */
+    public synchronized void reset() {
+        idx = 0;
+        count = 0;
+        Arrays.fill(ring, 0L);
+    }
+
     public String summary() {
         return String.format(
                 "MSPT mean=%.2f  p95=%.2f  p99=%.2f  (n=%d)%n" +
