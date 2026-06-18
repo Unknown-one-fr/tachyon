@@ -20,6 +20,7 @@ public final class TachyonConfig {
     public boolean ffmScratch = true;       // off-heap FFM scratch arenas
     public boolean simdNoise = true;        // SIMD worldgen kernels
     public boolean governorEnabled = true;  // self-tuning MSPT governor
+    public boolean measureRegions = true;   // live region-partitioning stats (safe, read-only)
 
     // tunables
     public int targetMspt = 35;
@@ -42,6 +43,7 @@ public final class TachyonConfig {
             c.ffmScratch = bool(p, "ffm.scratch", c.ffmScratch);
             c.simdNoise = bool(p, "simd.noise", c.simdNoise);
             c.governorEnabled = bool(p, "governor.enabled", c.governorEnabled);
+            c.measureRegions = bool(p, "mosaic.measureRegions", c.measureRegions);
             c.targetMspt = integer(p, "governor.targetMspt", c.targetMspt);
             c.interactionRadiusChunks = integer(p, "mosaic.interactionRadiusChunks", c.interactionRadiusChunks);
             c.parallelism = integer(p, "mosaic.parallelism", c.parallelism);
@@ -63,6 +65,7 @@ public final class TachyonConfig {
         p.setProperty("ffm.bytesPerThread", Long.toString(scratchBytesPerThread));
         p.setProperty("simd.noise", Boolean.toString(simdNoise));
         p.setProperty("governor.enabled", Boolean.toString(governorEnabled));
+        p.setProperty("mosaic.measureRegions", Boolean.toString(measureRegions));
         p.setProperty("governor.targetMspt", Integer.toString(targetMspt));
         p.setProperty("metrics.window", Integer.toString(metricsWindow));
         try {

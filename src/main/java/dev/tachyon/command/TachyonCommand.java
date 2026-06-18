@@ -16,10 +16,13 @@ public final class TachyonCommand {
     private TachyonCommand() {}
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        // TODO(26.1): re-gate to operators via the new PermissionSet API
-        // (CommandSourceStack.permissions().hasPermission(<Permission>)). Open on the
-        // private test instance for now — milestone 1 is compile + load.
         dispatcher.register(Commands.literal("tachyon")
+                .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))   // op level 2 (26.1 PermissionCheck)
+                .then(Commands.literal("regions").executes(ctx -> {
+                    ctx.getSource().sendSuccess(
+                            () -> Component.literal(dev.tachyon.mc.RegionStats.summary()), false);
+                    return 1;
+                }))
                 .then(Commands.literal("perf").executes(ctx -> {
                     ctx.getSource().sendSuccess(
                             () -> Component.literal(TachyonMod.engine.metrics.summary()), false);
