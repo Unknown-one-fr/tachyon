@@ -27,7 +27,19 @@ techniques. **Not for production worlds** — expect instability and mod incompa
 > **parallel-ticking vanilla entities deadlocks**: the Server thread parks in the scheduler join while
 > workers block in vanilla's thread-confined tick machinery → Watchdog kill at 60s. Lesson: a thin
 > mixin can't make vanilla ticking thread-safe (that needs Folia-depth per-region world isolation).
-> `/tachyon` is op-gated (level 2). Next: real per-region chunk/world isolation before re-enabling takeover.
+> `/tachyon` is op-gated (level 2).
+>
+> **Milestone 3 (in progress) — per-region isolation foundation.** Built the load-bearing primitive
+> the takeover was missing: a **cooperative main-thread dispatcher** (`core/MainThreadDispatcher`).
+> A region worker that needs the server thread mid-tick hops back via `call(...)`; the server thread
+> **pumps that queue while it waits** for the parallel phase (`RegionScheduler.pumpUntil`) instead of
+> bare-blocking in `join()` — so the worker↔main wait that deadlocked before can always make progress.
+> Plus an **off-main access tripwire** (`core/OffThreadGuard`, OFF/WARN/STRICT via `mosaic.guardMode`)
+> to locate the unsafe `ServerLevel` touches that still need routing. Proven by a pure-Java test that
+> reproduces the exact deadlock pattern and shows it now completes (would hang on the old scheduler);
+> engine determinism + the 9.9× entity benchmark are unaffected. **Next:** route the specific vanilla
+> chunk/global-state calls through the dispatcher (needs `genSources` mapping work) before
+> re-enabling `mosaic.enabled`.
 
 ## What's here (v0.1.0-experimental)
 

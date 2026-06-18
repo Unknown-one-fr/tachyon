@@ -1,5 +1,7 @@
 package dev.tachyon.config;
 
+import dev.tachyon.core.OffThreadGuard;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -29,6 +31,10 @@ public final class TachyonConfig {
     public int metricsWindow = 200;
     public long scratchBytesPerThread = 8L * 1024 * 1024;
 
+    // off-thread access tripwire for the parallel engine: OFF (default) | WARN | STRICT.
+    // Used to locate unsafe shared-state touches while building per-region isolation.
+    public OffThreadGuard.Mode guardMode = OffThreadGuard.Mode.OFF;
+
     public static TachyonConfig load(Path file) {
         TachyonConfig c = new TachyonConfig();
         if (Files.exists(file)) {
@@ -49,6 +55,7 @@ public final class TachyonConfig {
             c.parallelism = integer(p, "mosaic.parallelism", c.parallelism);
             c.metricsWindow = integer(p, "metrics.window", c.metricsWindow);
             c.scratchBytesPerThread = longer(p, "ffm.bytesPerThread", c.scratchBytesPerThread);
+            c.guardMode = guardMode(p, "mosaic.guardMode", c.guardMode);
         } else {
             c.save(file);
         }
@@ -68,6 +75,7 @@ public final class TachyonConfig {
         p.setProperty("mosaic.measureRegions", Boolean.toString(measureRegions));
         p.setProperty("governor.targetMspt", Integer.toString(targetMspt));
         p.setProperty("metrics.window", Integer.toString(metricsWindow));
+        p.setProperty("mosaic.guardMode", guardMode.name());
         try {
             Files.createDirectories(file.getParent());
             try (OutputStream out = Files.newOutputStream(file)) {
@@ -96,6 +104,16 @@ public final class TachyonConfig {
             String v = p.getProperty(k);
             return v == null ? def : Long.parseLong(v.trim());
         } catch (NumberFormatException e) {
+            return def;
+        }
+    }
+
+    private static OffThreadGuard.Mode guardMode(Properties p, String k, OffThreadGuard.Mode def) {
+        String v = p.getProperty(k);
+        if (v == null) return def;
+        try {
+            return OffThreadGuard.Mode.valueOf(v.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
             return def;
         }
     }

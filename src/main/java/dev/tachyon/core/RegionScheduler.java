@@ -2,6 +2,7 @@ package dev.tachyon.core;
 
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.function.Consumer;
 
 /**
@@ -13,6 +14,13 @@ import java.util.function.Consumer;
  * provably non-interacting (see {@link RegionGraph}) and single-writer, no locks on
  * world data are needed during the parallel phase. Cross-region effects are deferred
  * to the barrier where they run single-threaded in deterministic region order.
+ *
+ * <p><b>Cooperative wait (no deadlock).</b> The calling (main) thread does <em>not</em> simply
+ * block in {@code join()} while workers run — a worker that needs the main thread (chunk
+ * futures, {@code managedBlock}, global managers) would then wait forever on a main thread that
+ * is itself waiting. Instead the main thread runs a managed wait: it {@link MainThreadDispatcher#pump()}s
+ * worker→main requests until the parallel phase completes. This is what makes parallel ticking of
+ * code that still occasionally needs the main thread possible at all.
  *
  * <p>Parallelism is fixed per instance (the JDK pool does not resize cleanly); the
  * governor changes width by asking the engine to swap in a new scheduler.
@@ -63,15 +71,27 @@ public final class RegionScheduler implements AutoCloseable {
 
         long t0 = System.nanoTime();
         // Submitting the parallelStream into our pool makes the stream use THIS pool's
-        // workers (not the common pool). .join() blocks the caller = the barrier point.
-        pool.submit(() -> regions.parallelStream().forEach(region -> {
-            region.owner = Thread.currentThread();
+        // workers (not the common pool). We do NOT bare-join: a worker may need the main
+        // thread mid-tick, so the main thread pumps the dispatcher while it waits (below).
+        final MainThreadDispatcher dispatcher = MainThreadDispatcher.INSTANCE;
+        ForkJoinTask<?> job = pool.submit(() -> {
             try {
-                RegionContext.runIn(region, () -> tickFn.accept(region));
+                regions.parallelStream().forEach(region -> {
+                    region.owner = Thread.currentThread();
+                    try {
+                        RegionContext.runIn(region, () -> tickFn.accept(region));
+                    } finally {
+                        region.owner = null;
+                    }
+                });
             } finally {
-                region.owner = null;
+                dispatcher.wake(); // unblock the managed wait the instant the phase ends
             }
-        })).join();
+        });
+
+        // Managed wait: service worker→main requests until the parallel phase is done.
+        dispatcher.pumpUntil(job::isDone);
+        job.join();         // propagate worker exceptions to the main thread
         long t1 = System.nanoTime();
 
         // Barrier: single-threaded, deterministic order. Cross-region inboxes first

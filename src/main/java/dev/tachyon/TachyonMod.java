@@ -3,6 +3,8 @@ package dev.tachyon;
 import com.sun.management.HotSpotDiagnosticMXBean;
 import dev.tachyon.command.TachyonCommand;
 import dev.tachyon.config.TachyonConfig;
+import dev.tachyon.core.MainThreadDispatcher;
+import dev.tachyon.core.OffThreadGuard;
 import dev.tachyon.govern.MsptGovernor;
 import dev.tachyon.simd.NoiseKernel;
 import net.fabricmc.api.ModInitializer;
@@ -57,7 +59,18 @@ public final class TachyonMod implements ModInitializer {
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> engine.shutdown());
 
-        ServerTickEvents.START_SERVER_TICK.register(s -> tickStartNs = System.nanoTime());
+        // The server tick thread owns all shared world state. Bind it as the dispatcher's main
+        // thread on the first tick so region workers can hop back to it cooperatively (and the
+        // off-thread guard knows which thread is "main"). Cheap idempotent check on the hot path.
+        OffThreadGuard.setMode(config.guardMode);
+        ServerTickEvents.START_SERVER_TICK.register(s -> {
+            if (!MainThreadDispatcher.INSTANCE.isBound()) {
+                MainThreadDispatcher.INSTANCE.setMainThread(Thread.currentThread());
+                LOG.info("Tachyon: bound server thread '{}' as dispatcher main (guard={})",
+                        Thread.currentThread().getName(), config.guardMode);
+            }
+            tickStartNs = System.nanoTime();
+        });
         ServerTickEvents.END_SERVER_TICK.register(s -> {
             engine.metrics.recordTick(System.nanoTime() - tickStartNs);
             if (governor != null) {
