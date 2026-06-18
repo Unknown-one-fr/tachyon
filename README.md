@@ -4,16 +4,19 @@ Experimental, **max-performance** Fabric **server** engine for **Minecraft 26.1.
 A playground build that fuses ideas from many optimization mods into one and pushes JDK 25–only
 techniques. **Not for production worlds** — expect instability and mod incompatibility.
 
-> ### Branch `fabric-26.1` — real mod, deobfuscated MC
-> MC 26.1 ships **unobfuscated** (native Mojang names; no Yarn, no mappings download). This branch
-> builds the actual Fabric server mod against it; the standalone engine core lives on `main`.
+> ### Single trunk — real mod on deobfuscated MC 26.1.2
+> MC 26.1 ships **unobfuscated** (native Mojang names; no Yarn, no mappings download). The project
+> is now a **single unified build** on the official 26.1.2 mappings — the former MC-independent
+> `main` core build and the `fabric-26.1` mod build have been consolidated. One `build.gradle`
+> builds the real server mod *and* keeps the standalone engine self-test/benchmarks runnable
+> without booting MC (see [Build](#build)).
 >
 > **Milestone 1 ✅ — the mod compiles AND loads on a Fabric 26.1.2 server.** The dev server boots
 > with the mod and the startup self-test passes *live*: parallel region scheduler, FFM off-heap,
 > AVX-512 SIMD, and Compact Object Headers all active in-server (`Mappings not present!` confirms the
 > deobfuscated path); clean startup + shutdown, no errors.
 >
-> Build here: `./gradlew build` → `build/libs/tachyon-*.jar`; `./gradlew runServer` boots a dev
+> Build: `./gradlew build` → `build/libs/tachyon-*.jar`; `./gradlew runServer` boots a dev
 > server with the mod. Uses `net.fabricmc.fabric-loom` (non-remapping), **no `mappings` line**,
 > `implementation`/`jar`, access-widener `official` namespace. Gradle daemon must run on JDK 25.
 >
@@ -92,21 +95,25 @@ partitioning, and SoA swap-remove/query.
 
 ## Build
 
-Two stages, because **no dev mappings (Yarn or official Mojang) are published for 26.1.2** in this
-environment — Loom can't set up the MC workspace yet.
+One unified build (MC 26.1 is unobfuscated, so Loom needs **no mappings** — see the note at the
+top). The Gradle daemon must run on JDK 25; `.jdk25/` here is a no-space staged copy.
 
 ```bash
 export JAVA_HOME=/path/to/jdk-25      # a no-space path; .jdk25/ here is a staged copy
-./gradlew build    # builds the MC-independent engine core -> build/libs/tachyon-*.jar
-./gradlew run      # runs the self-test above
+
+# Real server mod
+./gradlew build        # -> build/libs/tachyon-*.jar
+./gradlew runServer    # boots a dev 26.1.2 server with the mod loaded
+
+# MC-independent engine core (no server boot needed)
+./gradlew selfTest     # the self-test above   (alias: ./gradlew run)
+./gradlew noiseBench    # SIMD vs scalar noise
+./gradlew entityBench  # parallel entity-tick engine
+./gradlew ffmBench     # FFM off-heap scratch vs heap GC
+./gradlew test         # JUnit determinism/parity suite (15 tests)
 ```
 
-When 26.1.2 dev mappings land: `mv build.fabric.gradle.txt build.gradle`, then
-`./gradlew genSources` (confirm the mixin signatures), move `templates/mixin/*` and the integration
-files (`TachyonMod`, `ServerActuators`, `command/`) back into the compiled set, and `./gradlew build`
-produces the actual server jar.
-
-## Run as a server mod (once the Fabric build is unblocked)
+## Run as a server mod
 
 Separate test instance — **NOT the live server**. Recommended JDK 25 flags:
 

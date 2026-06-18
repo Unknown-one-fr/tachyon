@@ -1,6 +1,12 @@
-// Fabric/MC 26.1 build (branch fabric-26.1). MC 26.1 ships UNOBFUSCATED, so we use the
-// non-remapping net.fabricmc.fabric-loom plugin, declare NO mappings (names are native
-// Mojang), and use implementation/jar (not modImplementation/remapJar). See plan Phase 2.
+// Tachyon — single unified build (MC 26.1.2 / JDK 25). MC 26.1 ships UNOBFUSCATED, so we use
+// the non-remapping net.fabricmc.fabric-loom plugin, declare NO mappings (names are native
+// Mojang), and use implementation/jar (not modImplementation/remapJar).
+//
+// This one build does everything that used to be split across two branches:
+//   • builds + runs the real Fabric server mod (./gradlew build, ./gradlew runServer)
+//   • runs the MC-independent engine self-test + benchmarks WITHOUT booting MC
+//     (./gradlew selfTest | noiseBench | entityBench | ffmBench — see "core runners" below)
+//   • runs the JUnit determinism/parity suite (./gradlew test)
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17.11'
     id 'java'
@@ -64,4 +70,36 @@ processResources {
     filesMatching("fabric.mod.json") {
         expand "version": project.version
     }
+}
+
+// --- Standalone core runners (MC-independent: self-test + benchmarks, no server boot) ---
+// The dev.tachyon.* engine core does not import any Minecraft class, so these mains run on
+// the plain runtime classpath. This preserves the fast iteration loop the old `main` branch
+// had via the `application` plugin, now inside the single unified Loom build.
+def coreJvmArgs = [
+    '--add-modules=jdk.incubator.vector',
+    '--enable-native-access=ALL-UNNAMED',
+    '-XX:+UseCompactObjectHeaders'
+]
+
+def registerCoreRunner = { String taskName, String mainCls, String desc ->
+    tasks.register(taskName, JavaExec) {
+        group = 'tachyon'
+        description = desc
+        mainClass = mainCls
+        classpath = sourceSets.main.runtimeClasspath
+        jvmArgs = coreJvmArgs
+    }
+}
+
+registerCoreRunner('selfTest',   'dev.tachyon.SelfTestRunner',  'Run the standalone engine self-test (no Minecraft).')
+registerCoreRunner('noiseBench',  'dev.tachyon.NoiseBench',      'Benchmark: SIMD vs scalar worldgen noise.')
+registerCoreRunner('entityBench', 'dev.tachyon.EntityBench',     'Benchmark: parallel entity-tick engine (threads × SIMD).')
+registerCoreRunner('ffmBench',    'dev.tachyon.FfmScratchBench', 'Benchmark: FFM off-heap scratch vs heap GC.')
+
+// `run` keeps parity with the old core build (alias for the self-test).
+tasks.register('run') {
+    group = 'tachyon'
+    description = 'Alias for selfTest (parity with the former standalone core build).'
+    dependsOn 'selfTest'
 }
