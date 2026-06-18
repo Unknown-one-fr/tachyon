@@ -74,10 +74,40 @@ techniques. **Not for production worlds** — expect instability and mod incompa
 > (overworld→4, nether→6/7). Gated `mosaic.intraLevel` (default **off**), independent of the per-level
 > `mosaic.enabled`.
 >
-> **Honest scope:** off-thread chunk *generation* (vs access) still routes through the server-thread
-> mailbox, so heavy worldgen during a region tick is sidestepped (forceload in tests), not yet handled;
-> server-global state (scoreboard/stats) from a level tick isn't isolated (`guardMode=WARN` surfaces it);
-> the per-level × intra-level nested combo is less tested than each alone. `/tachyon` is op-gated (level 2).
+> **Off-thread chunk generation — validated stable (Chunky).** Under the per-level takeover each
+> dimension drives its own generation on its worker thread (the relocated `mainThread` field also
+> covers the chunk mailbox's `getRunningThread`, so no extra code was needed), with the heavy work on
+> MC's shared background worldgen pool. Stress-tested with [Chunky](https://github.com/pop4959/Chunky)
+> pre-generating **fresh terrain in all 3 dimensions concurrently** (~2600 chunks/dim at ~100 cps real
+> gen) while the takeover ran: zero faults, MSPT ~3 ms. The full **combined** mode (per-level +
+> intra-level) + Chunky gen + ~2000 entities is also stable (no nested-scheduler deadlock).
+>
+> **Remaining honest scope:** server-global state (scoreboard/stats) touched from a level tick isn't
+> isolated yet (`guardMode=WARN` surfaces it). `/tachyon` is op-gated (level 2).
+
+## Stress testing with Chunky
+
+[Chunky](https://github.com/pop4959/Chunky) (drop `Chunky-Fabric-*.jar` into `run/mods/`) drives the
+off-thread chunk-generation path. Headless example — concurrent fresh generation in 3 dimensions under
+the takeover, via stdin commands to `runServer`:
+
+```
+chunky world minecraft:overworld
+chunky center 2000000 2000000
+chunky radius 400
+chunky start
+chunky world minecraft:the_nether
+chunky center 800000 800000
+chunky radius 400
+chunky start
+chunky world minecraft:the_end
+chunky center 800000 800000
+chunky radius 400
+chunky start
+```
+
+Pick far, never-generated centers to force real terrain generation (already-generated chunks load too
+fast to stress the pipeline). `tachyon perf` confirms the takeover is active (`regions=3`) during gen.
 
 ## What's here (v0.1.0-experimental)
 
