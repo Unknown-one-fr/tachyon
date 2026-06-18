@@ -31,3 +31,6 @@ Thumbs.db
 *.log
 
 # Keep the Gradle wrapper committed (do NOT ignore gradle/wrapper/*)
+
+# Extracted decompiled MC sources (genSources output, large, not source)
+.mcsrc/

@@ -5,7 +5,10 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
   "server": [
-    "ServerLevelTickMixin"
+    "ServerLevelTickMixin",
+    "MinecraftServerMixin",
+    "EntityTeleportMixin",
+    "ServerPlayerTeleportMixin"
   ],
   "client": [],
   "injectors": {

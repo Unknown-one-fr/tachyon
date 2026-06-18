@@ -4,3 +4,11 @@ accessWidener	v2	official
 # namespace. Entries are added as the mixin layer needs to reach private MC internals
 # (entity lists, chunk maps, light engine), e.g.:
 #   accessible  field  net/minecraft/server/level/ServerLevel  entityManager  L...;
+
+# Per-level chunk-cache owner relocation (Folia-slice): ServerChunkCache hard-confines all
+# chunk access to `mainThread` (getChunk/getChunkFuture/getRunningThread). To tick a level on
+# a worker, we temporarily reassign that level's cache owner to the worker, so chunk access
+# runs inline (single-writer per level) instead of bouncing to — and deadlocking on — the
+# blocked server thread. Requires the field to be readable AND non-final.
+accessible	field	net/minecraft/server/level/ServerChunkCache	mainThread	Ljava/lang/Thread;
+mutable	field	net/minecraft/server/level/ServerChunkCache	mainThread	Ljava/lang/Thread;

@@ -29,17 +29,34 @@ techniques. **Not for production worlds** — expect instability and mod incompa
 > mixin can't make vanilla ticking thread-safe (that needs Folia-depth per-region world isolation).
 > `/tachyon` is op-gated (level 2).
 >
-> **Milestone 3 (in progress) — per-region isolation foundation.** Built the load-bearing primitive
-> the takeover was missing: a **cooperative main-thread dispatcher** (`core/MainThreadDispatcher`).
-> A region worker that needs the server thread mid-tick hops back via `call(...)`; the server thread
-> **pumps that queue while it waits** for the parallel phase (`RegionScheduler.pumpUntil`) instead of
-> bare-blocking in `join()` — so the worker↔main wait that deadlocked before can always make progress.
-> Plus an **off-main access tripwire** (`core/OffThreadGuard`, OFF/WARN/STRICT via `mosaic.guardMode`)
-> to locate the unsafe `ServerLevel` touches that still need routing. Proven by a pure-Java test that
-> reproduces the exact deadlock pattern and shows it now completes (would hang on the old scheduler);
-> engine determinism + the 9.9× entity benchmark are unaffected. **Next:** route the specific vanilla
-> chunk/global-state calls through the dispatcher (needs `genSources` mapping work) before
-> re-enabling `mosaic.enabled`.
+> **Milestone 3 — per-level parallel takeover that actually runs. ✅** The takeover now ticks whole
+> **dimensions in parallel** and boots, ticks, and shuts down cleanly on a live 26.1.2 server (95s,
+> 3 dimensions, **no deadlock, no crash, zero exceptions**; `/tachyon perf` → `phases(ms): parallel
+> regions=3`). Getting here required solving the real wall:
+>
+> 1. **Cooperative main-thread dispatcher** (`core/MainThreadDispatcher`) — a worker that needs the
+>    server thread mid-tick hops back via `call(...)`; the server thread *pumps that queue while it
+>    waits* for the parallel phase (`RegionScheduler.pumpUntil`) instead of bare-blocking in `join()`.
+> 2. **The chunk-confinement wall.** `genSources` revealed `ServerChunkCache.getChunk` hard-confines
+>    *all* chunk access to one thread: `if (Thread.currentThread() != this.mainThread) …supplyAsync(
+>    mainThreadProcessor).join()`. Off-main chunk access is bounced to the server thread and blocks —
+>    so any off-main tick deadlocks there (proven twice). The fix is the Folia move: tick each level
+>    on **one** worker and temporarily **reassign that level's `mainThread` to the owning worker**
+>    (`ParallelLevelTicker` + access-widener), so chunk access runs inline, single-writer *per level*.
+>    Disjoint per-level state (entity manager, chunk source, scheduled ticks) makes this race-free by
+>    the same single-writer argument vanilla relies on — just relocated.
+> 3. **Cross-level writes deferred.** Dimension travel touches two levels' managers, so cross-dimension
+>    teleports are deferred to a single-threaded post-tick pass on the main thread (`EntityTeleportMixin`,
+>    `ServerPlayerTeleportMixin`, `CrossLevelDefer`).
+>
+> Plus an off-main tripwire (`core/OffThreadGuard`, `mosaic.guardMode=OFF/WARN/STRICT`).
+>
+> **Honest scope:** verified stable + deadlock-free on an idle/ambient dev server; *not yet* load-tested
+> with players, redstone, or live portal traffic, and server-global state (scoreboard, stats, player
+> list) touched from a level tick is not yet isolated — run `guardMode=WARN` to surface it. Gated behind
+> `mosaic.enabled` (default **off**). `/tachyon` is op-gated (level 2). **Next:** load-testing + isolating
+> the remaining server-global writes, then regionizing *within* a level (intra-level Mosaic) on top of
+> the per-level layer.
 
 ## What's here (v0.1.0-experimental)
 
