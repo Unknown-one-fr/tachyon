@@ -82,8 +82,14 @@ techniques. **Not for production worlds** — expect instability and mod incompa
 > gen) while the takeover ran: zero faults, MSPT ~3 ms. The full **combined** mode (per-level +
 > intra-level) + Chunky gen + ~2000 entities is also stable (no nested-scheduler deadlock).
 >
-> **Remaining honest scope:** server-global state (scoreboard/stats) touched from a level tick isn't
-> isolated yet (`guardMode=WARN` surfaces it). `/tachyon` is op-gated (level 2).
+> **Server-global state isolated.** The scoreboard is one object shared by every dimension, so it's
+> touched by workers across all dimensions at once — AI reads it (team/alliance lookups) and entity
+> events write it (score awards, score/team cleanup on entity removal). `ScoreboardMixin` guards the
+> tick-time methods with a `ReentrantReadWriteLock` (`ServerStateLock`): shared read lock for lookups
+> (AI stays parallel), exclusive write lock for the rare mutations; command-driven edits run on the
+> server thread between phases and need no guard. Verified under parallel combat (scored + teamed mobs
+> dying en masse across 3 dimensions, both layers on): no corruption, no deadlock. `/tachyon` is
+> op-gated (level 2).
 
 ## Stress testing with Chunky
 

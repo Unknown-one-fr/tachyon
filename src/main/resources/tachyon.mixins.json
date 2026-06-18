@@ -12,6 +12,7 @@
     "SectionManagerAddMixin",
     "SectionManagerCallbackMixin",
     "LevelEntityGetterMixin",
+    "ScoreboardMixin",
     "EntityTeleportMixin",
     "ServerPlayerTeleportMixin"
   ],
