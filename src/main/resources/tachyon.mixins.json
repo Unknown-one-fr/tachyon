@@ -7,6 +7,11 @@
   "server": [
     "ServerLevelTickMixin",
     "MinecraftServerMixin",
+    "ServerChunkCacheMixin",
+    "EntityTickListMixin",
+    "SectionManagerAddMixin",
+    "SectionManagerCallbackMixin",
+    "LevelEntityGetterMixin",
     "EntityTeleportMixin",
     "ServerPlayerTeleportMixin"
   ],
