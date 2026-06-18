@@ -1,16 +1,21 @@
 package dev.tachyon.mixin;
 
 import dev.tachyon.TachyonMod;
+import dev.tachyon.mc.ParallelEntityTicker;
 import dev.tachyon.mc.RegionStats;
 import dev.tachyon.mc.ServerLevelAdapter;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.entity.EntityTickList;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 /**
  * Measure mode (safe, default): after each level tick, periodically partition the live
@@ -36,5 +41,22 @@ public class ServerLevelTickMixin {
         int n = tachyon$adapter.partition();
         RegionStats.update(self.dimension().identifier().toString(),  // 26.1: ResourceKey.identifier()
                 tachyon$adapter.regions().size(), n, tachyon$adapter.maxRegionEntities());
+    }
+
+    /**
+     * EXPERIMENTAL: when mosaic.enabled, replace vanilla's serial entity-tick loop with the
+     * parallel region engine. Reuses vanilla's own per-entity consumer, so each entity ticks
+     * normally — only the cross-region dispatch is parallel. Unsafe on vanilla under load
+     * (see {@link ParallelEntityTicker}); off by default.
+     */
+    @Redirect(method = "tick",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/world/level/entity/EntityTickList;forEach(Ljava/util/function/Consumer;)V"))
+    private void tachyon$entityTick(EntityTickList list, Consumer<Entity> consumer) {
+        if (TachyonMod.config != null && TachyonMod.config.mosaicEnabled) {
+            ParallelEntityTicker.get().tick(list, consumer);
+        } else {
+            list.forEach(consumer);
+        }
     }
 }

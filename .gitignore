@@ -27,4 +27,7 @@ bin/
 .DS_Store
 Thumbs.db
 
+# scratch logs
+*.log
+
 # Keep the Gradle wrapper committed (do NOT ignore gradle/wrapper/*)
