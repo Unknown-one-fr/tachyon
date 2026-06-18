@@ -16,7 +16,15 @@ techniques. **Not for production worlds** — expect instability and mod incompa
 > Build here: `./gradlew build` → `build/libs/tachyon-*.jar`; `./gradlew runServer` boots a dev
 > server with the mod. Uses `net.fabricmc.fabric-loom` (non-remapping), **no `mappings` line**,
 > `implementation`/`jar`, access-widener `official` namespace. Gradle daemon must run on JDK 25.
-> Milestone 2 (next): `ServerLevelAdapter` + route entity ticking through `MosaicTicker`.
+>
+> **Milestone 2 — measure ✅ / takeover ⚠️.** `ServerLevelAdapter` partitions the live world into
+> regions; measure mode (read-only, default on) reports it via `/tachyon regions` — e.g. *48 entities
+> across 3 regions, 16/region → 3.0× ideal parallelism*. The experimental parallel **takeover**
+> (`mosaic.enabled`, default **off**) redirects `ServerLevel`'s entity loop through the scheduler, but
+> **parallel-ticking vanilla entities deadlocks**: the Server thread parks in the scheduler join while
+> workers block in vanilla's thread-confined tick machinery → Watchdog kill at 60s. Lesson: a thin
+> mixin can't make vanilla ticking thread-safe (that needs Folia-depth per-region world isolation).
+> `/tachyon` is op-gated (level 2). Next: real per-region chunk/world isolation before re-enabling takeover.
 
 ## What's here (v0.1.0-experimental)
 
