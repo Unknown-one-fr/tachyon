@@ -51,18 +51,41 @@ techniques. **Not for production worlds** — expect instability and mod incompa
 >
 > Plus an off-main tripwire (`core/OffThreadGuard`, `mosaic.guardMode=OFF/WARN/STRICT`).
 >
-> **Honest scope:** verified stable + deadlock-free on an idle/ambient dev server; *not yet* load-tested
-> with players, redstone, or live portal traffic, and server-global state (scoreboard, stats, player
-> list) touched from a level tick is not yet isolated — run `guardMode=WARN` to surface it. Gated behind
-> `mosaic.enabled` (default **off**). `/tachyon` is op-gated (level 2). **Next:** load-testing + isolating
-> the remaining server-global writes, then regionizing *within* a level (intra-level Mosaic) on top of
-> the per-level layer.
+> **Load-tested + ~1.6× faster.** Stress-tested on a live server: ~1000 entities (mob AI + items)
+> across 3 dimensions, heavy `randomTickSpeed`, rain, and adversarial simultaneous cross-dimension TNT
+> explosions — all stable, zero faults. Same-session A/B on identical load (`/tachyon mosaic on|off`):
+> **2.26 ms ON vs 3.57 ms OFF** (capped by the heaviest single dimension, since this layer parallelizes
+> across levels, not within one).
+>
+> **Milestone 4 — intra-level regionization. ✅ (opt-in, `mosaic.intraLevel`)** Parallelizes entity
+> ticking *within* a level, so the heaviest dimension is no longer a single thread. Two more isolation
+> primitives:
+> 1. **Multi-owner chunk cache** (`ServerChunkCacheMixin`) — several workers tick disjoint,
+>    interaction-radius-separated regions of one level; a `@Redirect` on the `mainThread` field reads
+>    hands each registered region worker inline chunk access (safe: a region only touches its own chunks).
+> 2. **Read-write entity-storage lock** (`EntityLifecycleLock`) — entity add/remove/section-move take an
+>    exclusive write lock (they mutate the shared `EntityTickList`/`PersistentEntitySectionManager`);
+>    every `getEntities`/AABB query takes a shared read lock (`LevelEntityGetterMixin`), so queries stay
+>    parallel but never read a half-updated map. Closes the structural-mutation crash *and* the
+>    lookup-during-write race.
+>
+> Verified on live 26.1.2 under interaction-heavy load (250 zombies vs 250 villagers on hard difficulty,
+> 3 dims): no deadlock/crash/exception/desync; levels split into multiple parallel regions
+> (overworld→4, nether→6/7). Gated `mosaic.intraLevel` (default **off**), independent of the per-level
+> `mosaic.enabled`.
+>
+> **Honest scope:** off-thread chunk *generation* (vs access) still routes through the server-thread
+> mailbox, so heavy worldgen during a region tick is sidestepped (forceload in tests), not yet handled;
+> server-global state (scoreboard/stats) from a level tick isn't isolated (`guardMode=WARN` surfaces it);
+> the per-level × intra-level nested combo is less tested than each alone. `/tachyon` is op-gated (level 2).
 
 ## What's here (v0.1.0-experimental)
 
 | Subsystem | Package | Status |
 |---|---|---|
-| Mosaic region engine (parallel, serial-within-region, single-writer) | `core` | core done; MC hookup staged |
+| Mosaic region engine (parallel, serial-within-region, single-writer) | `core` | done; drives live MC ticking |
+| Per-level parallel takeover (dimensions ticked concurrently) | `mc`, `mixin` | done; live, load-tested (~1.6×) |
+| Intra-level regionization (multi-owner chunk cache + rw entity lock) | `mc`, `mixin` | done; opt-in `mosaic.intraLevel` |
 | Parallel entity tick engine (Phase-R/W, snapshot, cross-region migration) | `engine` | done (adapter-based; 10.6x) |
 | Struct-of-Arrays entity hot store | `soa` | done |
 | FFM off-heap scratch arenas | `ffm` | done (0 GC, proven) |
