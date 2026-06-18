@@ -23,6 +23,7 @@ public final class TachyonConfig {
     public boolean simdNoise = true;        // SIMD worldgen kernels
     public boolean governorEnabled = true;  // self-tuning MSPT governor
     public boolean measureRegions = true;   // live region-partitioning stats (safe, read-only)
+    public boolean intraLevel = false;       // EXPERIMENTAL: regionize entity ticking within a level
 
     // tunables
     public int targetMspt = 35;
@@ -50,6 +51,7 @@ public final class TachyonConfig {
             c.simdNoise = bool(p, "simd.noise", c.simdNoise);
             c.governorEnabled = bool(p, "governor.enabled", c.governorEnabled);
             c.measureRegions = bool(p, "mosaic.measureRegions", c.measureRegions);
+            c.intraLevel = bool(p, "mosaic.intraLevel", c.intraLevel);
             c.targetMspt = integer(p, "governor.targetMspt", c.targetMspt);
             c.interactionRadiusChunks = integer(p, "mosaic.interactionRadiusChunks", c.interactionRadiusChunks);
             c.parallelism = integer(p, "mosaic.parallelism", c.parallelism);
@@ -73,6 +75,7 @@ public final class TachyonConfig {
         p.setProperty("simd.noise", Boolean.toString(simdNoise));
         p.setProperty("governor.enabled", Boolean.toString(governorEnabled));
         p.setProperty("mosaic.measureRegions", Boolean.toString(measureRegions));
+        p.setProperty("mosaic.intraLevel", Boolean.toString(intraLevel));
         p.setProperty("governor.targetMspt", Integer.toString(targetMspt));
         p.setProperty("metrics.window", Integer.toString(metricsWindow));
         p.setProperty("mosaic.guardMode", guardMode.name());
