@@ -13,9 +13,11 @@
     "SectionManagerAddMixin",
     "SectionManagerCallbackMixin",
     "LevelEntityGetterMixin",
+    "LevelBlockEntityThreadMixin",
     "ScoreboardMixin",
     "IntraLevelEntityLoopMixin",
     "PlayerTickDeferMixin",
+    "ServerLevelPassengerTickInvoker",
     "EntityTeleportMixin",
     "ServerPlayerTeleportMixin"
   ],

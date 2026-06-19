@@ -4,6 +4,7 @@ import dev.tachyon.TachyonMod;
 import dev.tachyon.core.MainThreadDispatcher;
 import dev.tachyon.core.Region;
 import dev.tachyon.core.RegionScheduler;
+import dev.tachyon.mixin.ServerLevelPassengerTickInvoker;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -86,6 +87,17 @@ public final class ParallelLevelTicker {
      */
     public static void deferPlayerTick(ServerLevel level, Entity player) {
         DEFERRED_PLAYERS.add(() -> level.tickNonPassenger(player));
+    }
+
+    /**
+     * Queue a riding player's passenger tick to run on the main thread. Vanilla routes mounted
+     * players through private {@code tickPassenger(...)} instead of {@code tickNonPassenger(...)};
+     * replay that exact path at the barrier so vehicle validation, {@code rideTick()}, and nested
+     * passenger recursion stay vanilla.
+     */
+    public static void deferPlayerPassengerTick(ServerLevel level, Entity vehicle, Entity player) {
+        DEFERRED_PLAYERS.add(() ->
+                ((ServerLevelPassengerTickInvoker) level).tachyon$invokeTickPassenger(vehicle, player));
     }
 
     /**
