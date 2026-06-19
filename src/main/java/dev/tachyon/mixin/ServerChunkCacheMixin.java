@@ -52,6 +52,11 @@ public abstract class ServerChunkCacheMixin implements RegionOwnable {
         tachyon$owners.clear();
     }
 
+    @Override
+    public boolean tachyon$isOwner(Thread t) {
+        return tachyon$owners.contains(t);
+    }
+
     @Redirect(
             method = {"getChunk", "getChunkNow", "getChunkFuture"},
             at = @At(value = "FIELD",

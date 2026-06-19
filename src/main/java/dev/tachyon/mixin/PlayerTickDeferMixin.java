@@ -30,7 +30,7 @@ public class PlayerTickDeferMixin {
 
     @Inject(method = "tickNonPassenger", at = @At("HEAD"), cancellable = true)
     private void tachyon$deferPlayerToMain(Entity entity, CallbackInfo ci) {
-        if (TachyonMod.config == null || !TachyonMod.config.mosaicEnabled) {
+        if (!tachyon$parallelTakeoverActive()) {
             return;
         }
         if (!(entity instanceof ServerPlayer)) {
@@ -41,5 +41,25 @@ public class PlayerTickDeferMixin {
             ParallelLevelTicker.deferPlayerTick((ServerLevel) (Object) this, entity);
             ci.cancel();
         }
+    }
+
+    @Inject(method = "tickPassenger", at = @At("HEAD"), cancellable = true)
+    private void tachyon$deferRidingPlayerToMain(Entity vehicle, Entity entity, CallbackInfo ci) {
+        if (!tachyon$parallelTakeoverActive()) {
+            return;
+        }
+        if (!(entity instanceof ServerPlayer)) {
+            return;
+        }
+        MainThreadDispatcher d = MainThreadDispatcher.INSTANCE;
+        if (d.isBound() && !d.isMainThread()) {
+            ParallelLevelTicker.deferPlayerPassengerTick((ServerLevel) (Object) this, vehicle, entity);
+            ci.cancel();
+        }
+    }
+
+    private static boolean tachyon$parallelTakeoverActive() {
+        return TachyonMod.config != null
+                && (TachyonMod.config.mosaicEnabled || TachyonMod.config.intraLevel);
     }
 }

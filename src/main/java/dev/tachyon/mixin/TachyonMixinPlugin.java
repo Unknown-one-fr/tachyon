@@ -42,9 +42,11 @@ public final class TachyonMixinPlugin implements IMixinConfigPlugin {
             "dev.tachyon.mixin.SectionManagerAddMixin",
             "dev.tachyon.mixin.SectionManagerCallbackMixin",
             "dev.tachyon.mixin.LevelEntityGetterMixin",
+            "dev.tachyon.mixin.LevelBlockEntityThreadMixin",
             "dev.tachyon.mixin.ScoreboardMixin",
             "dev.tachyon.mixin.IntraLevelEntityLoopMixin",
             "dev.tachyon.mixin.PlayerTickDeferMixin",
+            "dev.tachyon.mixin.ServerLevelPassengerTickInvoker",
             "dev.tachyon.mixin.EntityTeleportMixin",
             "dev.tachyon.mixin.ServerPlayerTeleportMixin");
 

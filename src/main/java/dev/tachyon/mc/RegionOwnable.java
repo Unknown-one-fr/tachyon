@@ -9,4 +9,5 @@ public interface RegionOwnable {
     void tachyon$addOwner(Thread t);
     void tachyon$removeOwner(Thread t);
     void tachyon$clearOwners();
+    boolean tachyon$isOwner(Thread t);
 }
