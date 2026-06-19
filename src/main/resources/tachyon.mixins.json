@@ -15,6 +15,7 @@
     "LevelEntityGetterMixin",
     "ScoreboardMixin",
     "IntraLevelEntityLoopMixin",
+    "PlayerTickDeferMixin",
     "EntityTeleportMixin",
     "ServerPlayerTeleportMixin"
   ],

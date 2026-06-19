@@ -111,6 +111,10 @@ public final class IntraLevelEntityTicker {
             cache.tachyon$clearOwners();
         }
 
+        // Tick any players deferred off the workers — only drains if we're the true main thread
+        // (intra-only mode runs here on the server thread; in combined mode the per-level driver drains).
+        ParallelLevelTicker.drainDeferredPlayersIfMain();
+
         if (TachyonMod.engine != null) {
             TachyonMod.engine.metrics.recordPhases(
                     scheduler.lastParallelNanos(), scheduler.lastBarrierNanos(), 0L, regions.size());

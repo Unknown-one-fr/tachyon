@@ -1,10 +1,12 @@
 package dev.tachyon.mc;
 
 import dev.tachyon.TachyonMod;
+import dev.tachyon.core.MainThreadDispatcher;
 import dev.tachyon.core.Region;
 import dev.tachyon.core.RegionScheduler;
 import net.minecraft.server.level.ServerChunkCache;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,15 @@ public final class ParallelLevelTicker {
     private final RegionScheduler scheduler;
     private final ConcurrentLinkedQueue<Runnable> postTick = new ConcurrentLinkedQueue<>();
 
+    /**
+     * Players whose tick was deferred off a worker thread to the main thread. A {@code ServerPlayer}
+     * shares state with the main-thread connection/menu/advancement machinery (opening a container,
+     * packet sync, stats), so ticking it on a region worker races with packet handling — observed as
+     * containers refusing to open. We skip players during the parallel phase and re-tick them on the
+     * main thread at the barrier instead. Process-wide (filled from any worker / any level).
+     */
+    private static final ConcurrentLinkedQueue<Runnable> DEFERRED_PLAYERS = new ConcurrentLinkedQueue<>();
+
     private ParallelLevelTicker(int parallelism) {
         this.scheduler = new RegionScheduler(parallelism);
     }
@@ -68,6 +79,31 @@ public final class ParallelLevelTicker {
         }
     }
 
+    /**
+     * Queue a player's tick to run on the main thread (called from a worker via the tick mixin).
+     * The full vanilla {@code tickNonPassenger} runs at the barrier on the main thread, where the
+     * chunk cache owner is the server thread again and no packet-handling race exists.
+     */
+    public static void deferPlayerTick(ServerLevel level, Entity player) {
+        DEFERRED_PLAYERS.add(() -> level.tickNonPassenger(player));
+    }
+
+    /**
+     * Tick all deferred players — but only when the caller is the true main thread. Both the
+     * per-level driver (server thread) and the intra-level driver call this; in the nested
+     * combined mode only the outer server-thread driver actually drains, so players never tick on a
+     * worker. No-op if the engine isn't bound yet (runs inline elsewhere).
+     */
+    public static void drainDeferredPlayersIfMain() {
+        if (!MainThreadDispatcher.INSTANCE.isMainThread()) {
+            return;
+        }
+        Runnable r;
+        while ((r = DEFERRED_PLAYERS.poll()) != null) {
+            r.run();
+        }
+    }
+
     /** Tick every level in parallel, then replay deferred cross-level mutations on the main thread. */
     public void tickLevels(List<ServerLevel> levels, BooleanSupplier haveTime) {
         final int n = levels.size();
@@ -95,7 +131,9 @@ public final class ParallelLevelTicker {
             }
         });
 
-        // Barrier complete (all levels ticked). Replay cross-level mutations single-threaded.
+        // Barrier complete (all levels ticked, on the server thread). Tick players that were
+        // deferred off the workers, then replay cross-level mutations — all single-threaded here.
+        drainDeferredPlayersIfMain();
         Runnable r;
         while ((r = postTick.poll()) != null) {
             r.run();
