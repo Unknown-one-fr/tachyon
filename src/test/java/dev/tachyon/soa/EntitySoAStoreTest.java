@@ -42,4 +42,17 @@ class EntitySoAStoreTest {
         int found = s.queryBox(10, 0, -1, 20, 128, 1, hits); // x in [10,20] -> 11 entities
         assertEquals(11, found);
     }
+
+    @Test
+    void queryBoxUsesEntityHalfExtents() {
+        EntitySoAStore s = new EntitySoAStore(4);
+        s.put(1, 0, 9.75, 64, 0, 0, 0, 0, 1.0f, 1.0f, 1.0f, 0L);
+        s.put(2, 0, 7.75, 64, 0, 0, 0, 0, 0.5f, 1.0f, 1.0f, 0L);
+
+        int[] hits = new int[4];
+        int found = s.queryBox(10, 63, -0.25, 11, 65, 0.25, hits);
+
+        assertEquals(1, found);
+        assertEquals(1, hits[0]);
+    }
 }
