@@ -94,7 +94,7 @@ public final class EntitySoAStore {
     }
 
     /**
-     * Dense AABB broadphase: append the slots of all entities whose centre lies in
+     * Dense AABB broadphase: append the ids of all entities whose AABB intersects
      * the box to {@code out}, returning the count. A flat scan over contiguous
      * primitive arrays the JIT can auto-vectorize — the SoA replacement for
      * pointer-chasing {@code getEntities}.
@@ -106,9 +106,9 @@ public final class EntitySoAStore {
         final int sz = size;
         for (int i = 0; i < sz && n < out.length; i++) {
             double px = x[i], py = y[i], pz = z[i];
-            if (px >= minX && px <= maxX
-                    && py >= minY && py <= maxY
-                    && pz >= minZ && pz <= maxZ) {
+            if (px + hx[i] >= minX && px - hx[i] <= maxX
+                    && py + hy[i] >= minY && py - hy[i] <= maxY
+                    && pz + hz[i] >= minZ && pz - hz[i] <= maxZ) {
                 out[n++] = entityId[i];
             }
         }
