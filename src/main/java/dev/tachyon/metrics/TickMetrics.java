@@ -1,6 +1,7 @@
 package dev.tachyon.metrics;
 
 import java.util.Arrays;
+import java.util.Locale;
 
 /**
  * Rolling window of recent whole-tick durations plus the last cycle's phase
@@ -56,6 +57,30 @@ public final class TickMetrics {
         return count;
     }
 
+    public synchronized Snapshot snapshot() {
+        if (count == 0) {
+            return new Snapshot(0, 0, 0, 0, 0,
+                    parallelNs / 1e6, barrierNs / 1e6, mainNs / 1e6, regionCount);
+        }
+
+        long[] copy = Arrays.copyOf(ring, count);
+        Arrays.sort(copy);
+        long sum = 0;
+        for (long v : copy) {
+            sum += v;
+        }
+        return new Snapshot(
+                (sum / (double) count) / 1_000_000.0,
+                percentileFromSorted(copy, 0.95),
+                percentileFromSorted(copy, 0.99),
+                copy[count - 1] / 1_000_000.0,
+                count,
+                parallelNs / 1e6,
+                barrierNs / 1e6,
+                mainNs / 1e6,
+                regionCount);
+    }
+
     /** Clear the rolling window (e.g. after toggling a subsystem, for a clean measurement). */
     public synchronized void reset() {
         idx = 0;
@@ -64,10 +89,45 @@ public final class TickMetrics {
     }
 
     public String summary() {
+        Snapshot s = snapshot();
         return String.format(
+                Locale.ROOT,
                 "MSPT mean=%.2f  p95=%.2f  p99=%.2f  (n=%d)%n" +
                 "phases(ms): parallel=%.2f  barrier=%.2f  main=%.2f  regions=%d",
-                meanMspt(), percentileMspt(0.95), percentileMspt(0.99), count,
-                parallelNs / 1e6, barrierNs / 1e6, mainNs / 1e6, regionCount);
+                s.meanMspt(), s.p95Mspt(), s.p99Mspt(), s.samples(),
+                s.parallelMs(), s.barrierMs(), s.mainMs(), s.regionCount());
+    }
+
+    private static double percentileFromSorted(long[] sorted, double p) {
+        int k = (int) Math.ceil(p * sorted.length) - 1;
+        if (k < 0) k = 0;
+        if (k >= sorted.length) k = sorted.length - 1;
+        return sorted[k] / 1_000_000.0;
+    }
+
+    public record Snapshot(
+            double meanMspt,
+            double p95Mspt,
+            double p99Mspt,
+            double maxMspt,
+            int samples,
+            double parallelMs,
+            double barrierMs,
+            double mainMs,
+            int regionCount) {
+
+        public double estimatedTps() {
+            if (meanMspt <= 0) {
+                return 20.0;
+            }
+            return Math.min(20.0, 1000.0 / meanMspt);
+        }
+
+        public String oneLine() {
+            return String.format(Locale.ROOT,
+                    "MSPT mean=%.2f p95=%.2f p99=%.2f max=%.2f TPS=%.2f n=%d phases(ms) parallel=%.2f barrier=%.2f main=%.2f regions=%d",
+                    meanMspt, p95Mspt, p99Mspt, maxMspt, estimatedTps(), samples,
+                    parallelMs, barrierMs, mainMs, regionCount);
+        }
     }
 }

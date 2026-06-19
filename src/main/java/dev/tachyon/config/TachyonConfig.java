@@ -23,13 +23,17 @@ public final class TachyonConfig {
     public boolean simdNoise = true;        // SIMD worldgen kernels
     public boolean governorEnabled = true;  // self-tuning MSPT governor
     public boolean measureRegions = true;   // live region-partitioning stats (safe, read-only)
+    public boolean measureWhenDisabled = false; // keep disabled baselines close to no-op by default
     public boolean intraLevel = false;       // EXPERIMENTAL: regionize entity ticking within a level
 
     // tunables
     public int targetMspt = 35;
     public int interactionRadiusChunks = 2;
     public int parallelism = Math.max(2, Runtime.getRuntime().availableProcessors() - 2);
+    public int measureIntervalTicks = 100;
     public int metricsWindow = 200;
+    public int metricsLogIntervalTicks = 200;
+    public boolean metricsCsv = true;
     public long scratchBytesPerThread = 8L * 1024 * 1024;
 
     // off-thread access tripwire for the parallel engine: OFF (default) | WARN | STRICT.
@@ -51,11 +55,15 @@ public final class TachyonConfig {
             c.simdNoise = bool(p, "simd.noise", c.simdNoise);
             c.governorEnabled = bool(p, "governor.enabled", c.governorEnabled);
             c.measureRegions = bool(p, "mosaic.measureRegions", c.measureRegions);
+            c.measureWhenDisabled = bool(p, "mosaic.measureWhenDisabled", c.measureWhenDisabled);
             c.intraLevel = bool(p, "mosaic.intraLevel", c.intraLevel);
             c.targetMspt = integer(p, "governor.targetMspt", c.targetMspt);
             c.interactionRadiusChunks = integer(p, "mosaic.interactionRadiusChunks", c.interactionRadiusChunks);
             c.parallelism = integer(p, "mosaic.parallelism", c.parallelism);
+            c.measureIntervalTicks = positiveInteger(p, "mosaic.measureIntervalTicks", c.measureIntervalTicks);
             c.metricsWindow = integer(p, "metrics.window", c.metricsWindow);
+            c.metricsLogIntervalTicks = nonNegativeInteger(p, "metrics.logIntervalTicks", c.metricsLogIntervalTicks);
+            c.metricsCsv = bool(p, "metrics.csv", c.metricsCsv);
             c.scratchBytesPerThread = longer(p, "ffm.bytesPerThread", c.scratchBytesPerThread);
             c.guardMode = guardMode(p, "mosaic.guardMode", c.guardMode);
         } else {
@@ -75,9 +83,13 @@ public final class TachyonConfig {
         p.setProperty("simd.noise", Boolean.toString(simdNoise));
         p.setProperty("governor.enabled", Boolean.toString(governorEnabled));
         p.setProperty("mosaic.measureRegions", Boolean.toString(measureRegions));
+        p.setProperty("mosaic.measureWhenDisabled", Boolean.toString(measureWhenDisabled));
         p.setProperty("mosaic.intraLevel", Boolean.toString(intraLevel));
         p.setProperty("governor.targetMspt", Integer.toString(targetMspt));
+        p.setProperty("mosaic.measureIntervalTicks", Integer.toString(measureIntervalTicks));
         p.setProperty("metrics.window", Integer.toString(metricsWindow));
+        p.setProperty("metrics.logIntervalTicks", Integer.toString(metricsLogIntervalTicks));
+        p.setProperty("metrics.csv", Boolean.toString(metricsCsv));
         p.setProperty("mosaic.guardMode", guardMode.name());
         try {
             Files.createDirectories(file.getParent());
@@ -86,6 +98,10 @@ public final class TachyonConfig {
             }
         } catch (IOException ignored) {
         }
+    }
+
+    public boolean parallelTakeoverEnabled() {
+        return mosaicEnabled || intraLevel;
     }
 
     private static boolean bool(Properties p, String k, boolean def) {
@@ -100,6 +116,16 @@ public final class TachyonConfig {
         } catch (NumberFormatException e) {
             return def;
         }
+    }
+
+    private static int positiveInteger(Properties p, String k, int def) {
+        int value = integer(p, k, def);
+        return value > 0 ? value : def;
+    }
+
+    private static int nonNegativeInteger(Properties p, String k, int def) {
+        int value = integer(p, k, def);
+        return value >= 0 ? value : def;
     }
 
     private static long longer(Properties p, String k, long def) {

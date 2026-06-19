@@ -6,6 +6,7 @@ import dev.tachyon.config.TachyonConfig;
 import dev.tachyon.core.MainThreadDispatcher;
 import dev.tachyon.core.OffThreadGuard;
 import dev.tachyon.govern.MsptGovernor;
+import dev.tachyon.metrics.PerfRecorder;
 import dev.tachyon.simd.NoiseKernel;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -36,7 +37,9 @@ public final class TachyonMod implements ModInitializer {
     public static TachyonEngine engine;
 
     private static MsptGovernor governor;
+    private static PerfRecorder perfRecorder;
     private static long tickStartNs;
+    private static long serverTicks;
 
     @Override
     public void onInitialize() {
@@ -45,10 +48,17 @@ public final class TachyonMod implements ModInitializer {
         engine = new TachyonEngine(config);
 
         LOG.info("Tachyon {} initializing", VERSION);
-        LOG.info("  subsystems: mosaic={} soa={} ffm={} simd={} governor={}",
-                config.mosaicEnabled, config.soaEnabled, config.ffmScratch, config.simdNoise, config.governorEnabled);
-        LOG.info("  jdk25: VectorAPI={} CompactObjectHeaders={} parallelism={}",
-                NoiseKernel.simdAvailable(), readVmFlag("UseCompactObjectHeaders"), config.parallelism);
+        LOG.info("  takeover: mosaic={} intraLevel={} parallelism={} guard={}",
+                config.mosaicEnabled, config.intraLevel, config.parallelism, config.guardMode);
+        LOG.info("  measure: regions={} intervalTicks={} whenDisabled={}",
+                config.measureRegions, config.measureIntervalTicks, config.measureWhenDisabled);
+        LOG.info("  subsystems: soa={} ffm={} simd={} governor={} targetMSPT={}",
+                config.soaEnabled, config.ffmScratch, config.simdNoise,
+                config.governorEnabled, config.targetMspt);
+        LOG.info("  metrics: window={} logIntervalTicks={} csv={}",
+                config.metricsWindow, config.metricsLogIntervalTicks, config.metricsCsv);
+        LOG.info("  jdk25: VectorAPI={} CompactObjectHeaders={}",
+                NoiseKernel.simdAvailable(), readVmFlag("UseCompactObjectHeaders"));
 
         if (dev.tachyon.mixin.TachyonMixinPlugin.isMeasureOnly()) {
             LOG.warn("  MEASURE-ONLY MODE: a conflicting deep tick/chunk mod (e.g. Lithium/C2ME) is "
@@ -57,13 +67,24 @@ public final class TachyonMod implements ModInitializer {
         }
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
-            if (config.governorEnabled) {
+            boolean takeoverActive = config.parallelTakeoverEnabled()
+                    && !dev.tachyon.mixin.TachyonMixinPlugin.isMeasureOnly();
+            if (config.governorEnabled && takeoverActive) {
                 governor = new MsptGovernor(config.targetMspt, new ServerActuators(server, 10));
+                LOG.info("Tachyon governor active (targetMSPT={})", config.targetMspt);
+            } else if (config.governorEnabled) {
+                LOG.info("Tachyon governor idle until a parallel takeover mode is active");
             }
+            perfRecorder = new PerfRecorder(FabricLoader.getInstance().getGameDir());
             LOG.info("Tachyon engaged.\n{}", engine.selfTest());
         });
 
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> engine.shutdown());
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            engine.shutdown();
+            governor = null;
+            perfRecorder = null;
+            serverTicks = 0;
+        });
 
         // The server tick thread owns all shared world state. Bind it as the dispatcher's main
         // thread on the first tick so region workers can hop back to it cooperatively (and the
@@ -78,9 +99,14 @@ public final class TachyonMod implements ModInitializer {
             tickStartNs = System.nanoTime();
         });
         ServerTickEvents.END_SERVER_TICK.register(s -> {
+            serverTicks++;
             engine.metrics.recordTick(System.nanoTime() - tickStartNs);
             if (governor != null) {
                 governor.update(engine.metrics.meanMspt(), System.currentTimeMillis());
+            }
+            if (perfRecorder != null) {
+                perfRecorder.reportIfDue(serverTicks, config, engine.metrics,
+                        governor != null, governorAdjustments());
             }
         });
 
@@ -97,5 +123,13 @@ public final class TachyonMod implements ModInitializer {
         } catch (Throwable t) {
             return "unknown";
         }
+    }
+
+    public static boolean governorActive() {
+        return governor != null;
+    }
+
+    public static long governorAdjustments() {
+        return governor != null ? governor.adjustments() : 0;
     }
 }
