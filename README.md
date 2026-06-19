@@ -4,12 +4,10 @@ Experimental, **max-performance** Fabric **server** engine for **Minecraft 26.1.
 A playground build that fuses ideas from many optimization mods into one and pushes JDK 25–only
 techniques. **Not for production worlds** — expect instability and mod incompatibility.
 
-> ### Single trunk — real mod on deobfuscated MC 26.1.2
-> MC 26.1 ships **unobfuscated** (native Mojang names; no Yarn, no mappings download). The project
-> is now a **single unified build** on the official 26.1.2 mappings — the former MC-independent
-> `main` core build and the `fabric-26.1` mod build have been consolidated. One `build.gradle`
-> builds the real server mod *and* keeps the standalone engine self-test/benchmarks runnable
-> without booting MC (see [Build](#build)).
+> ### Real mod on deobfuscated MC 26.1.2
+> MC 26.1 ships **unobfuscated** (native Mojang names; no Yarn, no mappings download). One
+> `build.gradle` builds the real Fabric server mod *and* keeps the standalone engine
+> self-test/benchmarks runnable without booting MC (see [Build](#build)).
 >
 > **Milestone 1 ✅ — the mod compiles AND loads on a Fabric 26.1.2 server.** The dev server boots
 > with the mod and the startup self-test passes *live*: parallel region scheduler, FFM off-heap,
@@ -129,14 +127,12 @@ fast to stress the pipeline). `tachyon perf` confirms the takeover is active (`r
 | Self-tuning MSPT governor | `govern` | done; actuators wired + tested |
 | Tick metrics + `/tachyon perf` | `metrics`, `command` | done |
 
-The engine ticks against a `RegionizedTickWorld` adapter (synthetic `EntityWorld` now, a
-`ServerLevel` adapter later), so the same `MosaicTicker` drives real Minecraft entities unchanged.
-
-The algorithmic core (`core`, `soa`, `ffm`, `simd`, `govern`, `metrics`) depends only on the JDK,
-so it compiles/runs regardless of MC mapping drift. Only `ServerActuators` and `TachyonCommand`
-touch Minecraft internals. The deep Mosaic mixins are staged in `templates/mixin/` and get moved
-into `src` + `tachyon.mixins.json` after their exact 26.1.2 signatures are confirmed via
-`./gradlew genSources`.
+The engine ticks against a `RegionizedTickWorld` adapter — a synthetic `EntityWorld` for the
+benchmarks/tests and a live `ServerLevelAdapter` in-server — so the same `MosaicTicker` drives both.
+The algorithmic core (`core`, `soa`, `ffm`, `simd`, `govern`, `metrics`) depends only on the JDK; the
+MC integration lives in `mc` + `mixin`. The Mosaic mixins apply only on a clean server — a Mixin
+config plugin disables them (measure-mode fallback) when a conflicting deep tick/chunk mod is present
+(see [COMPATIBILITY.md](COMPATIBILITY.md)).
 
 ## Validated on JDK 25 (Temurin 25.0.3)
 
@@ -176,18 +172,20 @@ FFM off-heap scratch vs heap allocation (`dev.tachyon.FfmScratchBench`, 512 KiB 
   ffm reset  :  0 GC collections   (identical checksum; zero GC = no allocation-driven MSPT spikes)
 ```
 
-Tests: `./gradlew test` → **15 passing**, including Mosaic **parallel == serial bitwise
+Tests: `./gradlew test` → **21 passing**, including Mosaic **parallel == serial bitwise
 determinism** (the core safety proof) under both static load and live cross-region migration,
 SIMD/scalar parity for the noise and flocking kernels, governor tighten/relax/cooldown, RegionGraph
-partitioning, and SoA swap-remove/query.
+partitioning, SoA swap-remove/query, the cooperative main-thread dispatcher (anti-deadlock), and the
+off-main access guard.
 
 ## Build
 
-One unified build (MC 26.1 is unobfuscated, so Loom needs **no mappings** — see the note at the
-top). The Gradle daemon must run on JDK 25; `.jdk25/` here is a no-space staged copy.
+Requires **JDK 25** (the build uses the Vector API incubator + FFM). MC 26.1 is unobfuscated, so
+Loom needs **no mappings** (see the note at the top). The Gradle daemon must run on JDK 25 — point
+`JAVA_HOME` at any JDK 25 install; the bundled `./gradlew` wrapper fetches Gradle itself.
 
 ```bash
-export JAVA_HOME=/path/to/jdk-25      # a no-space path; .jdk25/ here is a staged copy
+export JAVA_HOME=/path/to/jdk-25      # any JDK 25 (e.g. Temurin 25)
 
 # Real server mod
 ./gradlew build        # -> build/libs/tachyon-*.jar
@@ -195,10 +193,10 @@ export JAVA_HOME=/path/to/jdk-25      # a no-space path; .jdk25/ here is a stage
 
 # MC-independent engine core (no server boot needed)
 ./gradlew selfTest     # the self-test above   (alias: ./gradlew run)
-./gradlew noiseBench    # SIMD vs scalar noise
+./gradlew noiseBench   # SIMD vs scalar noise
 ./gradlew entityBench  # parallel entity-tick engine
 ./gradlew ffmBench     # FFM off-heap scratch vs heap GC
-./gradlew test         # JUnit determinism/parity suite (15 tests)
+./gradlew test         # JUnit determinism/parity suite (21 tests)
 ```
 
 ## Run as a server mod
@@ -211,5 +209,8 @@ Separate test instance — **NOT the live server**. Recommended JDK 25 flags:
 --enable-native-access=ALL-UNNAMED
 ```
 
-In-game: `/tachyon selftest`, `/tachyon perf` (live MSPT + phase breakdown), `/tachyon status`.
-Toggle subsystems in `config/tachyon.properties`; `mosaic.enabled` defaults to **false**.
+In-game (operator-only): `/tachyon perf` (live MSPT + phase breakdown), `/tachyon regions`,
+`/tachyon status`, `/tachyon selftest`, `/tachyon mosaic on|off` (runtime takeover toggle). Toggle
+subsystems in `config/tachyon.properties`; `mosaic.enabled` and `mosaic.intraLevel` default to
+**false**. The parallel takeover requires removing the conflicting perf stack — see
+[COMPATIBILITY.md](COMPATIBILITY.md).

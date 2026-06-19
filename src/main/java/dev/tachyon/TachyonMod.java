@@ -23,9 +23,9 @@ import java.nio.file.Path;
  * hooks (whole-tick timing via Fabric lifecycle events) and the {@code /tachyon}
  * command, and starts the MSPT governor once the server is up.
  *
- * <p>The deep Mosaic interception lives in the mixin layer (staged — see
- * {@code templates/mixin}); everything wired here is mapping-stable so the mod loads
- * and measures on day one.
+ * <p>The deep Mosaic interception lives in the {@code dev.tachyon.mixin} layer (conflict-gated by
+ * {@link dev.tachyon.mixin.TachyonMixinPlugin}); everything wired here runs regardless so the mod
+ * loads and measures even when the takeover is gated off.
  */
 public final class TachyonMod implements ModInitializer {
     public static final String ID = "tachyon";
