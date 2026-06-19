@@ -12,3 +12,35 @@ accessWidener	v2	official
 # blocked server thread. Requires the field to be readable AND non-final.
 accessible	field	net/minecraft/server/level/ServerChunkCache	mainThread	Ljava/lang/Thread;
 mutable	field	net/minecraft/server/level/ServerChunkCache	mainThread	Ljava/lang/Thread;
+
+# SIMD worldgen noise: McNoiseKernel reads (never mutates) the permutation tables / offsets /
+# scaling factors out of a live NormalNoise so VanillaNoiseMath can reproduce its math bit-for-bit
+# in the Vector API. Read-only — `accessible` only, no `mutable`. (xo/yo/zo are already public.)
+accessible	field	net/minecraft/world/level/levelgen/synth/NormalNoise	first	Lnet/minecraft/world/level/levelgen/synth/PerlinNoise;
+accessible	field	net/minecraft/world/level/levelgen/synth/NormalNoise	second	Lnet/minecraft/world/level/levelgen/synth/PerlinNoise;
+accessible	field	net/minecraft/world/level/levelgen/synth/NormalNoise	valueFactor	D
+accessible	field	net/minecraft/world/level/levelgen/synth/PerlinNoise	noiseLevels	[Lnet/minecraft/world/level/levelgen/synth/ImprovedNoise;
+accessible	field	net/minecraft/world/level/levelgen/synth/PerlinNoise	amplitudes	Lit/unimi/dsi/fastutil/doubles/DoubleList;
+accessible	field	net/minecraft/world/level/levelgen/synth/PerlinNoise	lowestFreqInputFactor	D
+accessible	field	net/minecraft/world/level/levelgen/synth/PerlinNoise	lowestFreqValueFactor	D
+accessible	field	net/minecraft/world/level/levelgen/synth/ImprovedNoise	p	[B
+
+# BlendedNoise (the heavy 3D terrain noise, BASE_3D_NOISE) is sampled point-wise via compute() in
+# vanilla; McNoiseKernel reads its three PerlinNoise stacks + scale multipliers (read-only) to drive
+# a bit-exact SIMD batch fill. PerlinNoise.getOctaveNoise(i) is already public.
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	minLimitNoise	Lnet/minecraft/world/level/levelgen/synth/PerlinNoise;
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	maxLimitNoise	Lnet/minecraft/world/level/levelgen/synth/PerlinNoise;
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	mainNoise	Lnet/minecraft/world/level/levelgen/synth/PerlinNoise;
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	xzMultiplier	D
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	yMultiplier	D
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	xzFactor	D
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	yFactor	D
+accessible	field	net/minecraft/world/level/levelgen/synth/BlendedNoise	smearScaleMultiplier	D
+
+# NoiseChunk-level batching: vanilla's DensityFunctions$Ap2 (the +,*,min,max node) evaluates its
+# second operand point-wise via compute(), which collapses the fillArray batch chain before it
+# reaches the noise leaves (e.g. mul(factor, add(caves, ...)) hides BlendedNoise in arg2). The Ap2
+# mixin re-fills arg2 via fillArray so batching propagates down to the SIMD noise. Needs the
+# (package-private) Ap2 type + its operation enum reachable.
+accessible	class	net/minecraft/world/level/levelgen/DensityFunctions$TwoArgumentSimpleFunction
+accessible	class	net/minecraft/world/level/levelgen/DensityFunctions$TwoArgumentSimpleFunction$Type

@@ -94,7 +94,9 @@ def registerCoreRunner = { String taskName, String mainCls, String desc ->
 
 registerCoreRunner('selfTest',   'dev.tachyon.SelfTestRunner',  'Run the standalone engine self-test (no Minecraft).')
 registerCoreRunner('noiseBench',  'dev.tachyon.NoiseBench',      'Benchmark: SIMD vs scalar worldgen noise.')
+registerCoreRunner('mcNoiseBench', 'dev.tachyon.McNoiseBench',    'Benchmark: SIMD vs scalar bit-exact MC NormalNoise + BlendedNoise kernels.')
 registerCoreRunner('entityBench', 'dev.tachyon.EntityBench',     'Benchmark: parallel entity-tick engine (threads × SIMD).')
+registerCoreRunner('broadphaseBench', 'dev.tachyon.BroadphaseBench', 'Benchmark: SoA flat-scan vs grid collision broadphase across densities.')
 registerCoreRunner('ffmBench',    'dev.tachyon.FfmScratchBench', 'Benchmark: FFM off-heap scratch vs heap GC.')
 
 // `run` keeps parity with the old core build (alias for the self-test).

@@ -94,16 +94,22 @@ public final class IntraLevelEntityTicker {
             buckets.get(regionOfChunk.get(chunkKeyOf[i])).add(entities.get(i));
         }
 
+        final boolean broadphase = TachyonMod.config != null && TachyonMod.config.entityBroadphase;
         final RegionOwnable cache = (RegionOwnable) (Object) level.getChunkSource();
         try {
             scheduler.tick(regions, region -> {
                 Thread worker = Thread.currentThread();
                 cache.tachyon$addOwner(worker);   // claim inline chunk access for this region
+                // Phase R: build the SoA collision broadphase for this region (read-only) so the
+                // per-entity getEntityCollisions during Phase W is served from the hot store.
+                RegionBroadphase bp = broadphase ? RegionBroadphase.build(level, region) : null;
+                if (bp != null) RegionBroadphase.ACTIVE.set(bp);
                 try {
                     for (Entity e : buckets.get(region.id)) {
                         if (!e.isRemoved()) tickFn.accept(e);
                     }
                 } finally {
+                    RegionBroadphase.ACTIVE.remove();
                     cache.tachyon$removeOwner(worker);
                 }
             });

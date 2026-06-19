@@ -28,7 +28,9 @@ public final class TachyonCommand {
                 }))
                 .then(Commands.literal("perf").executes(ctx -> {
                     ctx.getSource().sendSuccess(
-                            () -> Component.literal(TachyonMod.engine.metrics.summary()), false);
+                            () -> Component.literal(TachyonMod.engine.metrics.summary()
+                                    + "\n" + dev.tachyon.mc.McNoiseKernel.stats()
+                                    + "\n" + dev.tachyon.mc.RegionBroadphase.stats()), false);
                     return 1;
                 }))
                 .then(Commands.literal("selftest").executes(ctx -> {
@@ -45,7 +47,9 @@ public final class TachyonCommand {
                     String s = "Tachyon " + TachyonMod.VERSION
                             + (measureOnly ? " | MEASURE-ONLY (conflicting mod present; takeover disabled)" : "")
                             + " | mosaic=" + c.mosaicEnabled + " intraLevel=" + c.intraLevel
-                            + " soa=" + c.soaEnabled + " ffm=" + c.ffmScratch + " simd=" + c.simdNoise
+                            + " entityBroadphase=" + c.entityBroadphase
+                            + " soa=" + c.soaEnabled + " ffm=" + c.ffmScratch
+                            + " simd=" + c.simdNoise + " simdNoiseMinBatch=" + c.simdNoiseMinBatch
                             + " governor=" + c.governorEnabled
                             + " | parallelism=" + c.parallelism + " targetMSPT=" + c.targetMspt;
                     ctx.getSource().sendSuccess(() -> Component.literal(s), false);

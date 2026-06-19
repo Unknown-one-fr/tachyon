@@ -46,7 +46,12 @@ public final class TachyonMixinPlugin implements IMixinConfigPlugin {
             "dev.tachyon.mixin.IntraLevelEntityLoopMixin",
             "dev.tachyon.mixin.PlayerTickDeferMixin",
             "dev.tachyon.mixin.EntityTeleportMixin",
-            "dev.tachyon.mixin.ServerPlayerTeleportMixin");
+            "dev.tachyon.mixin.ServerPlayerTeleportMixin",
+            "dev.tachyon.mixin.NoiseDensityFunctionMixin",
+            "dev.tachyon.mixin.ShiftedNoiseDensityFunctionMixin",
+            "dev.tachyon.mixin.BlendedNoiseDensityFunctionMixin",
+            "dev.tachyon.mixin.Ap2DensityFunctionMixin",
+            "dev.tachyon.mixin.EntityCollisionBroadphaseMixin");
 
     private boolean conflictDetected;
     private String detectedMod;

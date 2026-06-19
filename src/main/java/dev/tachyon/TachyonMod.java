@@ -61,6 +61,9 @@ public final class TachyonMod implements ModInitializer {
                 governor = new MsptGovernor(config.targetMspt, new ServerActuators(server, 10));
             }
             LOG.info("Tachyon engaged.\n{}", engine.selfTest());
+            if (config.simdNoise) {
+                LOG.info("Tachyon: {}", dev.tachyon.mc.McNoiseKernel.selfCheck());
+            }
         });
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> engine.shutdown());

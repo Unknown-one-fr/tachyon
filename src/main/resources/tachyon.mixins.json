@@ -17,7 +17,12 @@
     "IntraLevelEntityLoopMixin",
     "PlayerTickDeferMixin",
     "EntityTeleportMixin",
-    "ServerPlayerTeleportMixin"
+    "ServerPlayerTeleportMixin",
+    "NoiseDensityFunctionMixin",
+    "ShiftedNoiseDensityFunctionMixin",
+    "BlendedNoiseDensityFunctionMixin",
+    "Ap2DensityFunctionMixin",
+    "EntityCollisionBroadphaseMixin"
   ],
   "client": [],
   "injectors": {

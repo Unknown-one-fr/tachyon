@@ -20,13 +20,21 @@ public final class TachyonConfig {
     public boolean mosaicEnabled = false;   // parallel region tick engine (experimental)
     public boolean soaEnabled = true;       // struct-of-arrays entity hot store
     public boolean ffmScratch = true;       // off-heap FFM scratch arenas
-    public boolean simdNoise = true;        // SIMD worldgen kernels
+    // SIMD worldgen noise: bit-exact vs vanilla, but BENCHMARKED SLOWER (MC's gradient noise is
+    // permutation-gather-bound, which the Vector API can't accelerate — see McNoiseBench). Default OFF;
+    // kept as a correctness-proven foundation, not a speedup. Enabling it slows worldgen ~1.3-1.5x.
+    public boolean simdNoise = false;       // SIMD worldgen kernels (foundation; not a perf win — see McNoiseBench)
+    public boolean simdVerifyNoise = false; // DEBUG: cross-check each SIMD noise batch vs vanilla bit-for-bit
     public boolean governorEnabled = true;  // self-tuning MSPT governor
     public boolean measureRegions = true;   // live region-partitioning stats (safe, read-only)
     public boolean intraLevel = false;       // EXPERIMENTAL: regionize entity ticking within a level
+    // SoA R/W-split collision broadphase: bit-exact, but the flat O(N) scan is BENCHMARKED SLOWER than
+    // vanilla's section index at real entity densities (O(N^2) per region — see BroadphaseBench). OFF.
+    public boolean entityBroadphase = false;  // EXPERIMENTAL: needs intraLevel; not a perf win — see BroadphaseBench
 
     // tunables
     public int targetMspt = 35;
+    public int simdNoiseMinBatch = 8;  // skip the SIMD worldgen path for batches smaller than this
     public int interactionRadiusChunks = 2;
     public int parallelism = Math.max(2, Runtime.getRuntime().availableProcessors() - 2);
     public int metricsWindow = 200;
@@ -49,9 +57,12 @@ public final class TachyonConfig {
             c.soaEnabled = bool(p, "soa.enabled", c.soaEnabled);
             c.ffmScratch = bool(p, "ffm.scratch", c.ffmScratch);
             c.simdNoise = bool(p, "simd.noise", c.simdNoise);
+            c.simdVerifyNoise = bool(p, "simd.verifyNoise", c.simdVerifyNoise);
+            c.simdNoiseMinBatch = Math.max(1, integer(p, "simd.noiseMinBatch", c.simdNoiseMinBatch));
             c.governorEnabled = bool(p, "governor.enabled", c.governorEnabled);
             c.measureRegions = bool(p, "mosaic.measureRegions", c.measureRegions);
             c.intraLevel = bool(p, "mosaic.intraLevel", c.intraLevel);
+            c.entityBroadphase = bool(p, "mosaic.entityBroadphase", c.entityBroadphase);
             c.targetMspt = integer(p, "governor.targetMspt", c.targetMspt);
             c.interactionRadiusChunks = integer(p, "mosaic.interactionRadiusChunks", c.interactionRadiusChunks);
             c.parallelism = integer(p, "mosaic.parallelism", c.parallelism);
@@ -73,9 +84,12 @@ public final class TachyonConfig {
         p.setProperty("ffm.scratch", Boolean.toString(ffmScratch));
         p.setProperty("ffm.bytesPerThread", Long.toString(scratchBytesPerThread));
         p.setProperty("simd.noise", Boolean.toString(simdNoise));
+        p.setProperty("simd.verifyNoise", Boolean.toString(simdVerifyNoise));
+        p.setProperty("simd.noiseMinBatch", Integer.toString(simdNoiseMinBatch));
         p.setProperty("governor.enabled", Boolean.toString(governorEnabled));
         p.setProperty("mosaic.measureRegions", Boolean.toString(measureRegions));
         p.setProperty("mosaic.intraLevel", Boolean.toString(intraLevel));
+        p.setProperty("mosaic.entityBroadphase", Boolean.toString(entityBroadphase));
         p.setProperty("governor.targetMspt", Integer.toString(targetMspt));
         p.setProperty("metrics.window", Integer.toString(metricsWindow));
         p.setProperty("mosaic.guardMode", guardMode.name());
