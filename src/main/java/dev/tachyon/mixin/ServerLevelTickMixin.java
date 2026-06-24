@@ -28,7 +28,9 @@ public class ServerLevelTickMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void tachyon$measureRegions(BooleanSupplier keepRunning, CallbackInfo ci) {
         if (TachyonMod.config == null || !TachyonMod.config.measureRegions) return;
-        if ((tachyon$counter++ % 20) != 0) return; // ~once per second
+        if (!tachyon$shouldMeasureRegions()) return;
+        int interval = Math.max(1, TachyonMod.config.measureIntervalTicks);
+        if ((tachyon$counter++ % interval) != 0) return;
 
         ServerLevel self = (ServerLevel) (Object) this;
         if (tachyon$adapter == null) {
@@ -37,5 +39,13 @@ public class ServerLevelTickMixin {
         int n = tachyon$adapter.partition();
         RegionStats.update(self.dimension().identifier().toString(),  // 26.1: ResourceKey.identifier()
                 tachyon$adapter.regions().size(), n, tachyon$adapter.maxRegionEntities());
+    }
+
+    @Unique
+    private boolean tachyon$shouldMeasureRegions() {
+        if (TachyonMod.config.parallelTakeoverEnabled()) {
+            return true;
+        }
+        return TachyonMod.config.measureWhenDisabled || TachyonMixinPlugin.isMeasureOnly();
     }
 }

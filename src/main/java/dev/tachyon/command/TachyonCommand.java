@@ -26,11 +26,18 @@ public final class TachyonCommand {
                             () -> Component.literal(dev.tachyon.mc.RegionStats.summary()), false);
                     return 1;
                 }))
-                .then(Commands.literal("perf").executes(ctx -> {
-                    ctx.getSource().sendSuccess(
-                            () -> Component.literal(TachyonMod.engine.metrics.summary()), false);
-                    return 1;
-                }))
+                .then(Commands.literal("perf")
+                        .executes(ctx -> {
+                            ctx.getSource().sendSuccess(
+                                    () -> Component.literal(TachyonMod.engine.metrics.summary()), false);
+                            return 1;
+                        })
+                        .then(Commands.literal("reset").executes(ctx -> {
+                            TachyonMod.engine.metrics.reset();
+                            ctx.getSource().sendSuccess(
+                                    () -> Component.literal("Tachyon perf metrics reset"), false);
+                            return 1;
+                        })))
                 .then(Commands.literal("selftest").executes(ctx -> {
                     ctx.getSource().sendSuccess(
                             () -> Component.literal(TachyonMod.engine.selfTest()), false);
@@ -45,9 +52,16 @@ public final class TachyonCommand {
                     String s = "Tachyon " + TachyonMod.VERSION
                             + (measureOnly ? " | MEASURE-ONLY (conflicting mod present; takeover disabled)" : "")
                             + " | mosaic=" + c.mosaicEnabled + " intraLevel=" + c.intraLevel
+                            + " measureRegions=" + c.measureRegions
+                            + " measureIntervalTicks=" + c.measureIntervalTicks
+                            + " measureWhenDisabled=" + c.measureWhenDisabled
                             + " soa=" + c.soaEnabled + " ffm=" + c.ffmScratch + " simd=" + c.simdNoise
                             + " governor=" + c.governorEnabled
-                            + " | parallelism=" + c.parallelism + " targetMSPT=" + c.targetMspt;
+                            + " governorActive=" + TachyonMod.governorActive()
+                            + " | parallelism=" + c.parallelism + " targetMSPT=" + c.targetMspt
+                            + " metricsWindow=" + c.metricsWindow
+                            + " metricsLogIntervalTicks=" + c.metricsLogIntervalTicks
+                            + " metricsCsv=" + c.metricsCsv;
                     ctx.getSource().sendSuccess(() -> Component.literal(s), false);
                     return 1;
                 })));
